@@ -392,6 +392,10 @@ const CLAUDE_WAKE_TURN_START_DEADLINE = "2 minutes";
 // reply can land after the progress frame that settles it. Its transcript
 // stays the source of its answer this long after it settles.
 const WORKFLOW_MEMBER_TRANSCRIPT_FLUSH_MS = 500;
+// A running subagent's transcript is read this often until its first reply;
+// one that never appears is given up after the attempts.
+const CLAUDE_SUBAGENT_TRANSCRIPT_POLL = "1 second";
+const CLAUDE_SUBAGENT_TRANSCRIPT_LOCATE_ATTEMPTS = 10;
 // A steer waits at most this long, from its request, for its foreground
 // subagents to move to the background before it is sent.
 const BACKGROUND_MOVE_TIMEOUT_MS = 5_000;
@@ -8330,10 +8334,9 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           });
 
         // Claude Code records the effort a subagent ran at only in its transcript.
-        const readSubagentTranscriptEffort = Effect.fnUntraced(function* (
+        const findSubagentTranscriptDir = Effect.fnUntraced(function* (
           context: ActiveClaudeTurnContext,
           taskId: string,
-          completed: boolean,
         ) {
           const cwd = context.input.runtimePolicy.cwd;
           if (cwd === null) return undefined;
@@ -8358,8 +8361,17 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               break;
             }
           }
-          if (found === undefined) return undefined;
-          const transcriptDir = found;
+          return found === undefined ? undefined : { transcriptDir: found, configDir };
+        });
+
+        const readSubagentTranscriptEffort = Effect.fnUntraced(function* (
+          context: ActiveClaudeTurnContext,
+          taskId: string,
+          completed: boolean,
+        ) {
+          const located = yield* findSubagentTranscriptDir(context, taskId);
+          if (located === undefined) return undefined;
+          const { transcriptDir, configDir } = located;
           let metadata: WorkflowAgentMetadata = {};
           let cursor = initialWorkflowAgentTranscriptCursor;
           const read = Effect.fnUntraced(function* () {
@@ -8496,6 +8508,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             existingSubagent === undefined
               ? input.effort
               : (existingSubagent.effort ??
+                input.effort ??
                 (lifecycleChanged &&
                 input.status !== "running" &&
                 existingSubagent.task.modelSelection !== undefined &&
@@ -8809,6 +8822,66 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               now,
             });
           }
+        });
+
+        // Claude Code writes a subagent's effort with its first reply. When the launch named none,
+        // follow the transcript to that reply so a running subagent shows its effort before it settles.
+        const followingSubagentEfforts = new Set<string>();
+        const followSubagentTranscriptEffort = Effect.fnUntraced(function* (
+          context: ActiveClaudeTurnContext,
+          taskId: string,
+        ) {
+          const subagent = (yield* Ref.get(sessionSubagentsByTaskId)).get(taskId);
+          if (
+            subagent === undefined ||
+            subagent.task.status !== "running" ||
+            subagent.effort !== undefined ||
+            subagent.task.modelSelection === undefined ||
+            subagent.nativeTaskType === CLAUDE_WORKFLOW_TASK_TYPE ||
+            followingSubagentEfforts.has(taskId)
+          ) {
+            return;
+          }
+          followingSubagentEfforts.add(taskId);
+          const follow = Effect.gen(function* () {
+            let located: Effect.Success<ReturnType<typeof findSubagentTranscriptDir>>;
+            let cursor = initialWorkflowAgentTranscriptCursor;
+            let metadata: WorkflowAgentMetadata = {};
+            for (let attempt = 0, caughtUp = false; metadata.messageId === undefined; attempt++) {
+              if (caughtUp) yield* Effect.sleep(CLAUDE_SUBAGENT_TRANSCRIPT_POLL);
+              // A settle reads the transcript itself.
+              if (
+                (yield* Ref.get(sessionSubagentsByTaskId)).get(taskId)?.task.status !== "running"
+              ) {
+                return;
+              }
+              located ??= yield* findSubagentTranscriptDir(context, taskId);
+              if (located === undefined) {
+                if (attempt + 1 >= CLAUDE_SUBAGENT_TRANSCRIPT_LOCATE_ATTEMPTS) return;
+                caughtUp = true;
+                continue;
+              }
+              const next = yield* readWorkflowAgentTranscript({
+                transcriptDir: located.transcriptDir,
+                agentId: taskId,
+                cursor,
+                ...(located.configDir === undefined ? {} : { configDir: located.configDir }),
+              }).pipe(Effect.option);
+              if (Option.isNone(next)) return;
+              metadata = mergeWorkflowAgentMetadata(next.value.lines, metadata);
+              caughtUp = !next.value.truncated || next.value.cursor.offset === cursor.offset;
+              cursor = next.value.cursor;
+            }
+            const effort = metadata.effort;
+            if (effort === undefined) return;
+            yield* sdkMessageLock.withPermits(1)(
+              updateClaudeSubagentNode({ context, taskId, effort, status: "running" }),
+            );
+          });
+          yield* follow.pipe(
+            Effect.ensuring(Effect.sync(() => followingSubagentEfforts.delete(taskId))),
+            Effect.forkIn(sessionScope),
+          );
         });
 
         const emitClaudePlanProjection = Effect.fnUntraced(function* (input: {
@@ -12042,6 +12115,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   ? current
                   : new Map(current).set(liveQuery.nativeThreadId, { ...entry, messages });
               });
+              yield* followSubagentTranscriptEffort(context, message.task_id);
             }
           }
 
