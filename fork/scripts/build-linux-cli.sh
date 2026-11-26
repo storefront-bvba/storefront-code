@@ -60,6 +60,11 @@ pnpm install --frozen-lockfile >>/tmp/install.log 2>&1 || { tail -40 /tmp/instal
 export PATH="/build/node_modules/.bin:$PATH"
 echo "== web client and server"
 pnpm exec vp run --filter t3 build
+# The server build puts T3's development icons into dist/client; upstream's release replaces them
+# with its brand, we put back our own from apps/web/public.
+for icon in favicon.ico favicon-16x16.png favicon-32x32.png apple-touch-icon.png icon-192x192.png icon-512x512.png; do
+	cp "apps/web/public/$icon" "apps/server/dist/client/$icon"
+done
 echo "== single executable"
 node apps/server/scripts/cli.ts build-exe
 echo "== resource monitor"
