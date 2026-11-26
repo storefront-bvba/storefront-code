@@ -71,14 +71,15 @@ export function toolActivityFaviconUrl(
   );
 }
 
-export function faviconUrlForOrigin(rawUrl: string | null | undefined, size = 32): string | null {
+export function faviconUrlForOrigin(rawUrl: string | null | undefined, _size = 32): string | null {
   if (!rawUrl) return null;
   try {
     const url = new URL(rawUrl);
     if (!url.hostname) return null;
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
     if (!isPublicFaviconHost(url.hostname)) return null;
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url.hostname)}&sz=${size}`;
+    // Storefront Code: no favicon service and no request to the linked site; callers show a globe.
+    return null;
   } catch {
     return null;
   }
