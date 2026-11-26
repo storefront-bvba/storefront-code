@@ -56,6 +56,8 @@ echo "== versions"
 node scripts/update-release-package-versions.ts "$VERSION"
 pnpm install --lockfile-only --ignore-scripts >/dev/null
 pnpm install --frozen-lockfile >>/tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
+# Build steps spawn `vp` (Vite+) by name; CI installs it globally, here it comes from the workspace.
+export PATH="/build/node_modules/.bin:$PATH"
 echo "== web client and server"
 pnpm exec vp run --filter t3 build
 echo "== single executable"
