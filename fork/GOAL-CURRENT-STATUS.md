@@ -31,7 +31,7 @@ upstream would take it.
 | F2 | 2-step voice input (Deepgram) | Not started | Own endpoint option (Idea #32516, fork meanwhile) + own Deepgram service; live words in fork | M–L | No for now (closed #32530) |
 | F3 | Subagent model and effort visible | Mostly exists; gap for Claude Code's own subagents | Try as bug-fix PR | M | Doubtful to good |
 | F4 | Usage indicator in a thread | Not started; data already in the app | Idea #40926, fork meanwhile | S–M | Doubtful (feature) |
-| F5 | Only Tailscale or LAN, no T3 Connect | Pairing over Tailscale works today; push needs Connect | Fork: host sends push itself | L | No (new connection method) |
+| F5 | Only Tailscale or LAN, no T3 Connect | Storefront Code paired over Tailscale Serve (2026-11-26); push and Live Activities still need Connect | Fork: host sends push itself | L | No (new connection method) |
 | F6 | Own Apple account, TestFlight | Done: first build uploaded to TestFlight on 2026-11-26 | Fork: `storefront-identity.ts`, `fork/scripts/` | S | No |
 | F7 | Full end-to-end encryption | Decided: nothing to build | Follows from F5 and push design | – | – |
 | N1 | One combined usage meter for pooled accounts | Not started | Fork | S–M | No |
@@ -42,8 +42,8 @@ upstream would take it.
 
 | Machine | State |
 | --- | --- |
-| Omarchy PC (host) | Official T3 Code: `t3code-bin` 0.1.11 (AUR) for CLI and desktop; background service still on runtime 0.1.10. 2026-11-26: `T3CODE_TELEMETRY_ENABLED=false` and `DO_NOT_TRACK=1` added to `~/.t3/service.env`; `enableProviderUpdateChecks: false` in `settings.json` (live). The service picks up the env change at its next restart, which a one-off watcher does once no thread is running. T3 Connect on (kept until F5 push works). LAN on (trusted). |
-| iPhone | Official T3 Code app, through T3 Connect. Stays installed until Storefront Code covers push and Live Activities. |
+| Omarchy PC (host) | Official T3 Code: `t3code-bin` 0.1.11 (AUR) for CLI and desktop; background service still on runtime 0.1.10 (versions differ: use the runtime's own `t3` for commands that open the database). 2026-11-26: `T3CODE_TELEMETRY_ENABLED=false` and `DO_NOT_TRACK=1` added to `~/.t3/service.env`; `enableProviderUpdateChecks: false` in `settings.json` (live). Restarted at 10:54 by a one-off watcher once no thread was running; the new server process has the opt-out. T3 Connect on (kept until F5 push works). LAN on (trusted). |
+| iPhone | Storefront Code from TestFlight, paired over Tailscale. The official T3 Code app (through T3 Connect) stays installed until Storefront Code covers push and Live Activities. |
 | MacBook Air (2025) | Not used yet. Needed for Xcode builds and TestFlight uploads, unless CI builds take over. |
 
 ## Details
@@ -202,6 +202,12 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
   commit `3aa379cbe`). Follow processing with `node fork/scripts/asc.mjs builds`. The export warns
   about missing dSYMs for prebuilt frameworks; harmless (we have no crash reporting).
 - The build Mac is reached over the LAN (`192.168.0.153`) when Tailscale is slow to connect.
+- **Storefront Code paired with the Omarchy host on 2026-11-26** over Tailscale Serve:
+  `https://omarchy.taila38105.ts.net` proxies to `127.0.0.1:3773` (tailnet only). The host keeps
+  "Local network" off (`T3CODE_LAN=false`), so the LAN never sees plain HTTP. Pair a device with
+  `~/.t3/runtime/versions/0.1.10/t3 pair --tailscale --label "<device>"` (use the runtime's own
+  `t3`: the AUR `t3` on PATH is 0.1.11 and refuses to touch the 0.1.10 server's database), and scan
+  the code from inside Storefront Code, not the Camera app (both apps register `t3code://`).
 - App Groups cannot be created or assigned through the API: `group.be.storefront.code` and
   `group.be.storefront.code.dev` are created and assigned by hand in the developer portal.
 - Still open:
