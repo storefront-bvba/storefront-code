@@ -12,6 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/cli";
+import * as CliError from "effect/cli/CliError";
 
 import packageJson from "../../package.json" with { type: "json" };
 import * as ServerConfig from "../config.ts";
@@ -163,6 +164,9 @@ const modelFlag = Flag.String("model").pipe(
   Flag.optional,
 );
 
+const TRIAGE_OFF_MESSAGE =
+  "Triage is off in Storefront Code: it reads upstream T3 Code's source and files issues there. Set STOREFRONT_TRIAGE=1 to run it anyway.";
+
 export const triageCommand = Command.make("triage", {
   baseDir: baseDirFlag,
   agent: agentFlag,
@@ -173,6 +177,10 @@ export const triageCommand = Command.make("triage", {
   ),
   Command.withHandler((flags) =>
     Effect.gen(function* () {
+      // Storefront Code: the playbook clones upstream T3 Code and files our logs as its issues.
+      if (!(yield* Config.Boolean("STOREFRONT_TRIAGE").pipe(Config.withDefault(false)))) {
+        return yield* new CliError.UserError({ cause: "triage", userMessage: TRIAGE_OFF_MESSAGE });
+      }
       // Triage is a user-facing feature: always the userdata state, never dev.
       const explicitBaseDir = Option.getOrUndefined(flags.baseDir);
       const envHome = yield* Config.String("T3CODE_HOME").pipe(Config.option);

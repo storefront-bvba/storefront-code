@@ -280,7 +280,7 @@ export const make = Effect.gen(function* () {
       projectOrganization: true,
       ignoredFileListing: true,
       ignoredFileSearch: true,
-      triage: true,
+      triage: false, // Storefront Code: triage clones upstream T3 Code and files issues there.
       oneTimeSchedules: true,
       freshContext: true,
       scheduledTaskThreadModes: true,
