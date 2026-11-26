@@ -47,7 +47,7 @@ npm install -g --silent "pnpm@$PNPM_VERSION"
 curl -fsSL https://sh.rustup.rs | sh -s -- -y -q --profile minimal --default-toolchain stable
 . "$HOME/.cargo/env"
 
-git config --global --add safe.directory '*'
+git config --global --add safe.directory "*"
 git clone -q --no-hardlinks /repo /build
 cd /build
 echo "== versions"
