@@ -46,7 +46,7 @@ upstream would take it.
 
 | Machine | State |
 | --- | --- |
-| Omarchy PC (host) | 2026-11-26 ~14:00: switching the background service from official runtime 0.1.10 to our build `0.1.12-storefront.25` (`fork/scripts/build-linux-cli.sh`, then `fork/scripts/install-runtime.sh`; 0.1.10 stays for rollback, database backup in `~/.t3/backups/`). `t3code-bin` (desktop app and CLI) removed; Tailscale 1.104.7. The web UI opens from the launcher "Storefront Code" in its own extension-free Chromium profile. Until the switch: the old service on 0.1.10, use its own `t3` for commands that open the database. 2026-11-26: `T3CODE_TELEMETRY_ENABLED=false` and `DO_NOT_TRACK=1` added to `~/.t3/service.env`; `enableProviderUpdateChecks: false` in `settings.json` (live). Restarted at 10:54 by a one-off watcher once no thread was running; the new server process has the opt-out. T3 Connect on (kept until F5 push works). LAN on (trusted). |
+| Omarchy PC (host) | **Runs our build `0.1.12-storefront.31` since 2026-11-26 14:14** (built with `fork/scripts/build-linux-cli.sh`, switched with `fork/scripts/install-runtime.sh`: backup `~/.t3/backups/2026-11-26-1414-before-0.1.12-storefront.31`, threads 432 → 432, telemetry opt-out in the server's environment). `t3` on PATH is ours (`~/.local/bin/t3`). T3 pruned the old 0.1.10 runtime after the switch, so rollback means: restore the database backup and install an earlier archive from `build/linux-cli/`. The web icons of this runtime were copied in by hand once (the build fix came after it). `t3code-bin` (desktop app and CLI) removed; Tailscale 1.104.7. The web UI opens from the launcher "Storefront Code" in its own extension-free Chromium profile; the Mac uses `https://omarchy.taila38105.ts.net` in Chrome. |
 | iPhone | Storefront Code from TestFlight, paired over Tailscale. The official T3 Code app (through T3 Connect) stays installed until Storefront Code covers push and Live Activities. |
 | MacBook Air (2025) | Not used yet. Needed for Xcode builds and TestFlight uploads, unless CI builds take over. |
 
@@ -255,6 +255,7 @@ need.
 
 | Date | Upstream tag | Notes |
 | --- | --- | --- |
+| 2026-11-26 | v0.1.12 | Omarchy host switched to `0.1.12-storefront.31` (Storefront mark in the web UI). |
 | 2026-11-26 | v0.1.12 | First own builds: iOS TestFlight `202611261129`, Linux runtime `0.1.12-storefront.25` (verified: no `ingest.t3.codes`, no PostHog key, no Axiom, update source `storefront-bvba/storefront-code`). |
 | 2026-11-26 | v0.1.12 | Fork created (`storefront-bvba/storefront-code`); `storefront` branched from the tag. GitHub Actions disabled in the fork (upstream workflows need upstream's runners). |
 
@@ -267,4 +268,5 @@ need.
 | 2026-11-26 | Keep T3 Connect until our own push works. |
 | 2026-11-26 | No separate E2E work; the home LAN is trusted. |
 | 2026-11-26 | Dropped: monospaced font option, environment cue per thread. |
+| 2026-11-26 | Web UI branding kept minimal: only the SVG behind `T3Wordmark` and the web icons change, so the sidebar reads "S Code". |
 | 2026-11-26 | Feature ideas go to upstream's Ideas discussions first; where an Idea already exists, we upvote it and add our case instead of opening a new one. |
