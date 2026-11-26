@@ -4,12 +4,15 @@
 #
 #   fork/scripts/install-runtime.sh build/linux-cli/t3-<version>-linux-x64.tar.gz
 #
-# 1. Unpacks the runtime next to the current ones in <T3 home>/runtime/versions/<version>.
+# T3 only trusts runtimes it downloads and checks itself (SHA256SUMS), and it removes anything else
+# it finds in <T3 home>/runtime/versions. So this script hands the archive to T3's own installer:
+# 1. Serves the archive and its SHA256SUMS as a release on 127.0.0.1 (T3CODE_RELEASE_BASE_URL).
 # 2. Waits until no thread has an active run (a restart would cut it off).
 # 3. Backs up the databases (SQLite online backup, consistent while the server runs) and the
 #    small config files to <T3 home>/backups/<timestamp>-before-<version>.
-# 4. Runs `<new>/t3 service install`: the running launcher snapshots SQLite, starts the new
-#    runtime as a trial and rolls back if it does not come up.
+# 4. Runs the new `t3 service install`: it downloads and verifies the runtime from that local
+#    release, then the running launcher snapshots SQLite, starts the new runtime as a trial and
+#    rolls back if it does not come up.
 # 5. Links `t3` on PATH to the new runtime and checks the result.
 # The previous runtime stays installed for rollback. This session may run inside the service:
 # start it detached (systemd-run) when an agent runs it. Log: <T3 home>/backups/install-runtime.log
@@ -17,29 +20,38 @@ set -euo pipefail
 
 ARCHIVE=$(realpath "$1")
 T3_HOME="${T3CODE_HOME:-$HOME/.t3}"
-VERSIONS="$T3_HOME/runtime/versions"
 LOG="$T3_HOME/backups/install-runtime.log"
 mkdir -p "$T3_HOME/backups"
 log() { printf '%s %s\n' "$(date -Is)" "$*" | tee -a "$LOG"; }
 
-name=$(basename "$ARCHIVE" .tar.gz)          # t3-<version>-linux-x64
+file=$(basename "$ARCHIVE")
+name=${file%.tar.gz}                         # t3-<version>-linux-x64
 VERSION=${name#t3-}
 VERSION=${VERSION%-linux-x64}
-TARGET="$VERSIONS/$VERSION"
+TARGET="$T3_HOME/runtime/versions/$VERSION"
 log "== install $VERSION from $ARCHIVE"
 
-if [ ! -x "$TARGET/t3" ]; then
-	staging=$(mktemp -d "$VERSIONS/.staging-XXXX")
-	tar -xzf "$ARCHIVE" -C "$staging"
-	src="$staging/$name"
-	[ -x "$src/t3" ] || { log "archive has no $name/t3"; rm -rf "$staging"; exit 1; }
-	mv "$src" "$TARGET"
-	rm -rf "$staging"
-	log "unpacked to $TARGET"
-fi
-reported=$("$TARGET/t3" --version 2>&1 | tail -1)
+work=$(mktemp -d)
+server_pid=""
+cleanup() { [ -n "$server_pid" ] && kill "$server_pid" 2>/dev/null; rm -rf "$work"; }
+trap cleanup EXIT
+
+# The new CLI, unpacked outside T3 home, runs the install.
+tar -xzf "$ARCHIVE" -C "$work"
+CLI="$work/$name/t3"
+reported=$("$CLI" --version 2>&1 | tail -1)
 log "new runtime reports: $reported"
 case "$reported" in *"$VERSION"*) ;; *) log "version mismatch, stopping"; exit 1 ;; esac
+
+# A local release laid out like GitHub's: <base>/v<version>/<file> and SHA256SUMS.
+mkdir -p "$work/release/v$VERSION"
+ln "$ARCHIVE" "$work/release/v$VERSION/$file" 2>/dev/null || cp "$ARCHIVE" "$work/release/v$VERSION/$file"
+(cd "$work/release/v$VERSION" && sha256sum "$file" >SHA256SUMS)
+port=$(python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+python3 -I -m http.server "$port" --bind 127.0.0.1 --directory "$work/release" >/dev/null 2>&1 &
+server_pid=$!
+sleep 1
+curl -fsS -o /dev/null "http://127.0.0.1:$port/v$VERSION/SHA256SUMS" || { log "local release not reachable"; exit 1; }
 
 DB="$T3_HOME/userdata/statev2.sqlite"
 ACTIVE="'queued','preparing','starting','running','waiting'"
@@ -69,10 +81,12 @@ threads_before=$(sqlite3 "file:$DB?mode=ro" "select count(*) from orchestration_
 log "backup in $BACKUP ($(du -sh "$BACKUP" | cut -f1)), threads: $threads_before"
 
 log "switching the service"
-"$TARGET/t3" service install 2>&1 | tee -a "$LOG"
+T3CODE_RELEASE_BASE_URL="http://127.0.0.1:$port" "$CLI" service install 2>&1 | tee -a "$LOG"
+[ -x "$TARGET/t3" ] || { log "runtime not installed in $TARGET"; exit 1; }
 "$TARGET/t3" install 2>&1 | tee -a "$LOG" || true
 
 ok=no
+status=""
 for i in $(seq 1 40); do
 	sleep 5
 	status=$("$TARGET/t3" service status 2>&1 || true)
