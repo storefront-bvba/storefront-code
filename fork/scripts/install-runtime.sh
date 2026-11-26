@@ -56,8 +56,11 @@ BACKUP="$T3_HOME/backups/$(date +%Y-%m-%d-%H%M)-before-$VERSION"
 mkdir -p "$BACKUP"
 chmod 700 "$BACKUP"
 for db in "$T3_HOME"/userdata/*.sqlite; do
-	sqlite3 "$db" ".backup '$BACKUP/$(basename "$db")'"
+	# server-owner.sqlite only marks which process owns the data; the server holds it exclusively.
+	[ "$(basename "$db")" = server-owner.sqlite ] && continue
+	sqlite3 -cmd ".timeout 30000" "$db" ".backup '$BACKUP/$(basename "$db")'"
 done
+sqlite3 "$BACKUP/statev2.sqlite" "pragma quick_check" | grep -qx ok || { log "backup check failed"; exit 1; }
 for f in settings.json keybindings.json environment-id anonymous-id server-runtime.json; do
 	[ -e "$T3_HOME/userdata/$f" ] && cp -p "$T3_HOME/userdata/$f" "$BACKUP/"
 done
