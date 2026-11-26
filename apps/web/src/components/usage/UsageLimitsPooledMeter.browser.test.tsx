@@ -4,12 +4,32 @@ import {
   ProviderInstanceId,
   type ServerProvider,
 } from "@t3tools/contracts";
-import { describe, expect, it } from "vite-plus/test";
+import { DEFAULT_CLIENT_SETTINGS, type UsageLimitDisplay } from "@t3tools/contracts/settings";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import "~/index.css";
 
 import { render } from "../../../test/render";
 import { UsageLimitsPooled } from "./UsageLimitsPooled";
+
+const display = vi.hoisted(() => ({ current: "remaining" as UsageLimitDisplay }));
+vi.mock("../../hooks/useSettings", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../hooks/useSettings")>();
+  return {
+    ...actual,
+    useClientSettings: <T,>(select: (settings: typeof DEFAULT_CLIENT_SETTINGS) => T) =>
+      select({ ...DEFAULT_CLIENT_SETTINGS, usageLimitDisplay: display.current }),
+  };
+});
+
+function showLimitsAs(mode: UsageLimitDisplay): Disposable {
+  display.current = mode;
+  return {
+    [Symbol.dispose]: () => {
+      display.current = "remaining";
+    },
+  };
+}
 
 const checkedAt = "2026-10-25T16:00:00.000Z";
 
@@ -43,19 +63,20 @@ function claude(instanceId: string, plan: string, usedPercent: number): ServerPr
   };
 }
 
+const presentations = new Map([
+  [
+    EnvironmentId.make("desk"),
+    {
+      entry: { target: { label: "Desk" } },
+      serverConfig: {
+        providers: [claude("Work", "Max", 40), claude("Spare", "Pro", 90)],
+      },
+    },
+  ],
+]);
+
 describe("UsageLimitsPooled combined meter", () => {
   it("draws one meter for the pool and keeps a row per account", async () => {
-    const presentations = new Map([
-      [
-        EnvironmentId.make("desk"),
-        {
-          entry: { target: { label: "Desk" } },
-          serverConfig: {
-            providers: [claude("Work", "Max", 40), claude("Spare", "Pro", 90)],
-          },
-        },
-      ],
-    ]);
     await using screen = await render(
       <UsageLimitsPooled presentations={presentations} now={Date.parse(checkedAt)} />,
     );
@@ -68,5 +89,24 @@ describe("UsageLimitsPooled combined meter", () => {
     // Same reset time, so the columns follow the account names.
     await expect.element(screen.getByRole("button", { name: /Segment 1\s*Spare/ })).toBeVisible();
     await expect.element(screen.getByRole("button", { name: /Segment 2\s*Work/ })).toBeVisible();
+  });
+});
+
+describe("UsageLimitsPooled as used", () => {
+  it("reads the pool, the meter and each account as the share used", async () => {
+    using _display = showLimitsAs("used");
+    await using screen = await render(
+      <UsageLimitsPooled presentations={presentations} now={Date.parse(checkedAt)} />,
+    );
+
+    const meter = screen.getByRole("meter", { name: "Session" });
+    await expect.element(meter).toHaveAttribute("aria-valuenow", "48");
+    await expect.element(meter).toHaveAttribute("aria-valuetext", "48% used");
+    await expect.element(screen.getByText("48%", { exact: true })).toBeVisible();
+    await expect.element(screen.getByText("used", { exact: true })).toBeVisible();
+    await expect.element(screen.getByRole("button", { name: /^Work: 40% used/ })).toBeVisible();
+    await expect
+      .element(screen.getByRole("button", { name: /Segment 1\s*Spare\s*90%/ }))
+      .toBeVisible();
   });
 });

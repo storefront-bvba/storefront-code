@@ -397,6 +397,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
+    id: "usage-limit-display",
+    title: msg("Usage limit display"),
+    to: "/settings/appearance",
+    searchTerms: [msg("usage limits percent left used remaining quota bar meter")],
+  },
+  {
     id: "effort-display",
     title: msg("Effort display"),
     to: "/settings/appearance",

@@ -19,6 +19,7 @@ import {
   resetCountdown,
 } from "@t3tools/shared/usageLimits";
 import { formatDuration, limitsNotice, resetCreditChoices } from "@t3tools/shared/usageLimitsCopy";
+import { shownPercent } from "@t3tools/shared/usageLimitsDisplay";
 import { msg, T, useGT, useMessages, Var } from "gt-react-native";
 import { type ReactNode, useContext, useRef, useState } from "react";
 import { Atom } from "effect/reactivity";
@@ -40,6 +41,7 @@ import {
   refreshEnvironmentLimits,
 } from "./usageLimitsRefresh";
 import { usageProviderKind, useProviderColors } from "./usageProviders";
+import { useUsageLimitDisplay } from "./useUsageLimitDisplay";
 
 const PACE_LABEL = {
   ahead: msg("ahead of pace"),
@@ -61,16 +63,19 @@ function WindowRow(props: {
   readonly now: number;
 }) {
   const { window, now } = props;
+  const display = useUsageLimitDisplay();
   const remaining = remainingPercent(window);
+  const fill = shownPercent(remaining, display);
   const timeLeft = paceRemainingPercent(window, now);
+  const tick = timeLeft === null ? null : shownPercent(timeLeft, display);
   const pace = paceOf(window, now);
   const m = useMessages();
   const resetsIn = resetLabels(window, now, m)?.full;
   const [barWidth, setBarWidth] = useState(0);
   const tickX =
-    timeLeft === null || barWidth < 6
+    tick === null || barWidth < 6
       ? null
-      : Math.min(Math.max((barWidth * timeLeft) / 100, 3), barWidth - 3);
+      : Math.min(Math.max((barWidth * tick) / 100, 3), barWidth - 3);
   const bar = (
     <View
       className="h-1.5 flex-row overflow-hidden rounded-full bg-subtle"
@@ -85,11 +90,11 @@ function WindowRow(props: {
               : "h-full rounded-full bg-foreground"
         }
         style={[
-          { flex: remaining },
+          { flex: fill },
           remaining > 30 && props.color ? { backgroundColor: props.color } : null,
         ]}
       />
-      <View style={{ flex: 100 - remaining }} />
+      <View style={{ flex: 100 - fill }} />
     </View>
   );
   return (
@@ -97,9 +102,15 @@ function WindowRow(props: {
       <View className="flex-row items-baseline justify-between gap-3">
         <Text className="text-sm text-foreground">{window.label}</Text>
         <Text className="text-sm font-t3-medium tabular-nums text-foreground">
-          <T>
-            <Var>{remaining}</Var>% left
-          </T>
+          {display === "used" ? (
+            <T>
+              <Var>{fill}</Var>% used
+            </T>
+          ) : (
+            <T>
+              <Var>{remaining}</Var>% left
+            </T>
+          )}
         </Text>
       </View>
       <View

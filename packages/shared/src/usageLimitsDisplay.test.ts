@@ -2,7 +2,14 @@ import { ProviderDriverKind } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { collectLimitPools, type LimitAccount } from "./usageLimits.ts";
-import { poolMeter } from "./usageLimitsDisplay.ts";
+import {
+  limitPercentText,
+  limitPercentWithTimeText,
+  limitWindowSummary,
+  limitWindowTimeText,
+  poolMeter,
+  shownPercent,
+} from "./usageLimitsDisplay.ts";
 
 const now = Date.parse("2026-09-03T12:00:00.000Z");
 
@@ -121,5 +128,45 @@ describe("poolMeter", () => {
       ),
     );
     expect(meter.pieces.reduce((sum, piece) => sum + piece.width, 0)).toBeCloseTo(90);
+  });
+});
+
+describe("usage limit display", () => {
+  it("flips quota and time to the share used", () => {
+    expect(shownPercent(40, "remaining")).toBe(40);
+    expect(shownPercent(40, "used")).toBe(60);
+    expect(limitPercentText(40, "remaining")).toBe("40% left");
+    expect(limitPercentText(40, "used")).toBe("60% used");
+    expect(limitWindowTimeText(25, "remaining")).toBe("25% of the window left");
+    expect(limitWindowTimeText(25, "used")).toBe("75% of the window passed");
+    expect(limitPercentWithTimeText(40, 25, "used")).toBe("60% used · 75% of the window passed");
+    expect(limitPercentWithTimeText(40, null, "used")).toBe("60% used");
+  });
+
+  it.each([
+    ["remaining", null, null, "Session: 40% left"],
+    ["remaining", 25, "resets in 2h", "Session: 40% left, 25% of the window left, resets in 2h"],
+    ["used", null, "resets in 2h", "Session: 60% used, resets in 2h"],
+    ["used", 25, null, "Session: 60% used, 75% of the window passed"],
+  ] as const)("reads a %s window aloud", (display, timeLeft, resetsIn, expected) => {
+    expect(
+      limitWindowSummary({ label: "Session", remaining: 40, timeLeft, resetsIn }, display),
+    ).toBe(expected);
+  });
+
+  it("fills the meter with what each account used", () => {
+    const pool = sessionPool([
+      account("max", "Max", [session]),
+      account("pro", "Pro", [{ ...session, usedPercent: 90 }]),
+    ]);
+    const meter = poolMeter(pool, now, "used");
+    const [max, pro] = meter.pieces;
+
+    expect(max!.width).toBeCloseTo(40 * (5 / 6));
+    expect(pro!.start).toBeCloseTo(max!.width);
+    expect(pro!.width).toBeCloseTo(15);
+    expect(Math.round(max!.width + pro!.width)).toBe(100 - pool.remainingPercent);
+    expect(meter.refills).toEqual([]);
+    expect(meter.paceMark).toBeCloseTo(100 - poolMeter(pool, now).paceMark!);
   });
 });

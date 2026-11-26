@@ -126,12 +126,17 @@ part of the meter and stays the same across windows. Accounts are ordered by the
 refill, soonest first. For an account with no weekly quota left, this is when its session becomes
 usable again. The first available window is used when no account reports a 5-hour limit. A missing
 row means the account does not report that window. When the provider reports reset times, the card
-also says when the next reset lands and how much it hands back. The hatched part after the fill is
-what the coming resets restore. Tap an account's part of the meter or its row for the account's
+also says when the next reset lands and how much it hands back. When limits read as left, the
+hatched part after the fill is what the coming resets restore. Tap an account's part of the meter or its row for the account's
 plan, where it is signed in, and its reset time. On web, you can hover too. Codex and Claude
 accounts with banked reset credits show a ticket count and the **Use reset** action in the account
 details. Claude resets are not available when the server runs on macOS, where Claude keeps its
 login in the Keychain.
+
+Limits read as how much is left. To read them as how much is used, choose **% used** in
+**Settings → Appearance → Usage limit display** on web and desktop, or in **Settings → Appearance →
+Usage limits** on mobile. The numbers, the bars and the even-pace mark all follow, wherever limits
+show. Each device keeps its own choice.
 
 The same account signed in on more than one environment, or reported by a hub as well, counts once.
 Filter with the environment dropdown to see what a single machine has.

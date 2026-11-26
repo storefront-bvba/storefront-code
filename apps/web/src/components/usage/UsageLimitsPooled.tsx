@@ -29,7 +29,7 @@ import {
 } from "react";
 
 import { ensureLocalApi } from "../../localApi";
-import { usePrimarySettings } from "../../hooks/useSettings";
+import { useClientSettings, usePrimarySettings } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
 import { formatUpcomingTimestamp } from "../../timestampFormat";
 import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
@@ -48,7 +48,14 @@ import {
   formatResetsIn,
   resetCreditChoices,
 } from "@t3tools/shared/usageLimitsCopy";
-import { poolMeter, type PoolMeterPiece } from "@t3tools/shared/usageLimitsDisplay";
+import {
+  limitEvenPaceText,
+  limitPercentText,
+  limitWindowTimeText,
+  poolMeter,
+  type PoolMeterPiece,
+  shownPercent,
+} from "@t3tools/shared/usageLimitsDisplay";
 
 function accountInitials(email: string): string {
   const [local = "", domain = ""] = email.split("@");
@@ -152,6 +159,7 @@ function SegmentPopover({
   readonly onRedeem: (choice: ResetCreditChoice) => void;
 }) {
   const timestampFormat = usePrimarySettings((settings) => settings.timestampFormat);
+  const display = useClientSettings((settings) => settings.usageLimitDisplay);
   const gt = useGT();
   const m = useMessages();
   const remaining = remainingPercent(window);
@@ -201,7 +209,15 @@ function SegmentPopover({
         ) : null}
       </div>
       <div className="flex flex-col gap-1 border-t border-border/60 pt-2.5">
-        <Row label={gt("Left", { $context: "remaining usage" })}>{remaining}%</Row>
+        <Row
+          label={
+            display === "used"
+              ? gt("Used", { $context: "used share of a usage limit" })
+              : gt("Left", { $context: "remaining usage" })
+          }
+        >
+          {shownPercent(remaining, display)}%
+        </Row>
         {window.resetsAt ? (
           <Row label={gt("Resets", { $context: "when the usage window resets" })}>
             {formatUpcomingTimestamp(window.resetsAt, timestampFormat, now, undefined, m)}
@@ -209,7 +225,7 @@ function SegmentPopover({
           </Row>
         ) : null}
         {timeLeft !== null ? (
-          <Row label={gt("Even pace")}>{gt("{timeLeft}% left by now", { timeLeft })}</Row>
+          <Row label={gt("Even pace")}>{limitEvenPaceText(timeLeft, display, m)}</Row>
         ) : null}
         {reset && reset.restoresPercent > 0 ? (
           <Row label={gt("Restores", { $context: "a reset credit restores part of the pool" })}>
@@ -368,20 +384,21 @@ function SegmentTriggers({
 }) {
   const popover = use(SegmentPopoverContext) ?? undefined;
   const payload: SegmentPayload = { account, window, reset, redeem };
+  const display = useClientSettings((settings) => settings.usageLimitDisplay);
   const remaining = remainingPercent(window);
   const timeLeft = paceRemainingPercent(window, now);
   const m = useMessages();
   const resetsIn = formatResetsIn(window, now, m);
   const credits = account.limits.resetCredits?.availableCount ?? 0;
   const gt = useGT();
+  const name =
+    account.displayName ?? (account.email ? accountInitials(account.email) : account.driver);
   const segmentLabel = [
-    gt("{name}: {remaining}% left", {
-      name:
-        account.displayName ?? (account.email ? accountInitials(account.email) : account.driver),
-      remaining,
-    }),
+    display === "used"
+      ? gt("{name}: {used}% used", { name, used: 100 - remaining })
+      : gt("{name}: {remaining}% left", { name, remaining }),
     resetsIn,
-    timeLeft === null ? null : gt("{timeLeft}% of the window left", { timeLeft }),
+    timeLeft === null ? null : limitWindowTimeText(timeLeft, display, m),
     credits
       ? gt(
           "{count, plural, one {{count} reset credit banked} other {{count} reset credits banked}}",
@@ -447,6 +464,7 @@ function LegendRow({
 }) {
   const popover = use(SegmentPopoverContext) ?? undefined;
   const { account, window } = payload;
+  const display = useClientSettings((settings) => settings.usageLimitDisplay);
   const remaining = remainingPercent(window);
   const m = useMessages();
   const resetsIn = formatResetsIn(window, now, m, "refill");
@@ -469,7 +487,9 @@ function LegendRow({
         <span className="relative">{index}</span>
       </span>
       <AccountName account={account} className="min-w-0 truncate font-medium text-foreground" />
-      <span className="shrink-0 font-semibold text-foreground tabular-nums">{remaining}%</span>
+      <span className="shrink-0 font-semibold text-foreground tabular-nums">
+        {shownPercent(remaining, display)}%
+      </span>
       <span className="ms-auto flex shrink-0 items-center gap-1.5 text-2xs text-muted-foreground tabular-nums">
         {resetsIn ?? ""}
         {credits ? (
@@ -509,12 +529,14 @@ function PoolBar({
   readonly now: number;
 }) {
   const restores = new Map(pool.resets.map((reset) => [reset.member.account.key, reset]));
-  const meter = poolMeter(pool, now);
+  const display = useClientSettings((settings) => settings.usageLimitDisplay);
+  const meter = poolMeter(pool, now, display);
   const pieces = new Map(meter.pieces.map((piece) => [piece.member.account.key, piece]));
   const [trackRef, paceMark] = usePaceMark(meter.paceMark);
   const accountColor = (account: LimitAccount) =>
     normalizeProviderAccentColor(account.accentColor) ?? color;
   const gt = useGT();
+  const m = useMessages();
   return (
     <div className="@container/pool min-w-0">
       <div className="grid gap-x-3 gap-y-1 @2xl/pool:grid-cols-2">
@@ -524,8 +546,8 @@ function PoolBar({
           aria-label={pool.label}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={pool.remainingPercent}
-          aria-valuetext={gt("{remaining}% left", { remaining: pool.remainingPercent })}
+          aria-valuenow={shownPercent(pool.remainingPercent, display)}
+          aria-valuetext={limitPercentText(pool.remainingPercent, display, m)}
           style={{ gridRow: 1, gridColumn: "1 / -1", ...paceMark?.gap }}
           className="h-5 rounded-md bg-muted @2xl/pool:h-8"
         />
@@ -598,6 +620,7 @@ function PoolWindowCard({
   readonly description?: string | undefined;
 }) {
   const m = useMessages();
+  const display = useClientSettings((settings) => settings.usageLimitDisplay);
   const nextRefill = pool.resets.find((reset) => reset.at > now && reset.restoresPercent > 0);
   return (
     <div className="grid items-center gap-x-6 gap-y-3 rounded-lg border border-border/60 p-4 md:grid-cols-[11rem_minmax(0,1fr)]">
@@ -607,11 +630,15 @@ function PoolWindowCard({
         ) : null}
         <span className="flex items-baseline gap-2">
           <span className="text-3xl font-semibold text-foreground tabular-nums">
-            {pool.remainingPercent}%
+            {shownPercent(pool.remainingPercent, display)}%
           </span>
           <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
             <span>
-              <T context="remaining usage percentage">left</T>
+              {display === "used" ? (
+                <T context="used usage percentage">used</T>
+              ) : (
+                <T context="remaining usage percentage">left</T>
+              )}
             </span>
             {pool.pace ? <PaceIcon pace={pool.pace} /> : null}
           </span>
@@ -679,6 +706,7 @@ export function UsageLimitsPooled({
 }) {
   const gt = useGT();
   const m = useMessages();
+  const display = useClientSettings((settings) => settings.usageLimitDisplay);
   const [segmentPopover] = useState(() => PopoverCreateHandle<SegmentPayload>());
   const segmentPopoverActions = useRef<PopoverPrimitive.Root.Actions | null>(null);
   const pools = collectLimitPools(collectLimitAccounts(presentations), now);
@@ -730,7 +758,7 @@ export function UsageLimitsPooled({
                   >
                     <span>{window.label}</span>
                     <span>
-                      {gt("{remaining}% left", { remaining: remainingPercent(window) })}
+                      {limitPercentText(remainingPercent(window), display, m)}
                       {reset ? ` · ${reset}` : ""}
                     </span>
                   </div>
