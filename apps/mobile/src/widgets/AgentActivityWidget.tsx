@@ -99,7 +99,9 @@ export function AgentActivityWidget(
 
   // Widget taps open the containing app, and every build accepts the prod
   // scheme as a link prefix, so dev and preview builds route this too.
-  const linkRow = rows[0];
+  // Storefront: after a row that needs you, a finished thread is the likelier reason to tap.
+  const linkRow =
+    rows.find((row) => phasePriority(row.phase) < 2 || row.phase === "completed") ?? rows[0];
   const deepLink =
     linkRow && linkRow.deepLink.startsWith("/") && !linkRow.deepLink.startsWith("//")
       ? `t3code://${linkRow.deepLink.slice(1)}`
