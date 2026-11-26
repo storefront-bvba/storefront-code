@@ -65,12 +65,12 @@ upstream would take it.
 | F1 | No telemetry or tracking | Fork patches, guard and build checks done; host runs our build with opt-outs; managed policy ready, not installed | Config + small patch + guard | S | No (on by default upstream) |
 | F2 | 2-step voice input (Deepgram) | Not started | Own endpoint option (Idea #32516, fork meanwhile) + own Deepgram service; live words in fork | M–L | No for now (closed #32530) |
 | F3 | Subagent model and effort visible | Fixed on branch `storefront-f3-subagents` (2026-11-26): effort shows while a Claude Code subagent runs; not yet merged into `storefront` or live | Fork patch now, upstream bug-fix PR later | S | Good (follows #35333 and #43023) |
-| F4 | Usage indicator in a thread | Not started; data already in the app | Idea #40926, fork meanwhile | S–M | Doubtful (feature) |
+| F4 | Usage indicator in a thread | Done in fork (branch `storefront-usage-display`, 2026-11-26); not yet seen on a device | Own file + one mount; Idea #40926 | S–M | Doubtful (feature) |
 | F5 | Only Tailscale or LAN, no T3 Connect | Paired over Tailscale Serve; host-sent push built on `storefront` (2026-11-26), not deployed yet (next server build, `service.env`, TestFlight) | Fork: host sends push itself | L | No (new connection method) |
 | F6 | Own Apple account, TestFlight | Done: first build uploaded to TestFlight on 2026-11-26 | Fork: `storefront-identity.ts`, `fork/scripts/` | S | No |
 | F7 | Full end-to-end encryption | Decided: nothing to build | Follows from F5 and push design | – | – |
-| N1 | One combined usage meter for pooled accounts | Not started | Fork | S–M | No |
-| N2 | Toggle % used / % remaining | Not started | Fork | S–M | No |
+| N1 | One combined usage meter for pooled accounts | Done in fork (branch `storefront-usage-display`); web checked in a browser, mobile not on a device | Fork | S–M | No |
+| N2 | Toggle % used / % remaining | Done in fork (branch `storefront-usage-display`), web and mobile; new strings not in the catalogs yet | Fork; design follows Ideas #32499 and #30076 | S–M | Possible once a maintainer agrees (#32499) |
 | N3 | Remote API for ERP / ticket system | Exists via `/mcp`; config gaps | Config, maybe a small patch | S | – |
 
 ## Machines
@@ -221,11 +221,24 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
 
 ### F4: usage indicator
 
-- The composer's `/usage-limits` panel already reads the thread's account limits
-  (`apps/mobile/src/features/threads/ComposerUsageLimits.tsx`), the same data as the Usage page.
-- Web and desktop have it as an option (Settings → Appearance → Thread details → Usage limits).
-- Plan: a small always-visible indicator in its own file, one-line mount in the thread screen
-  (`ThreadDetailScreen.tsx` is hot: 57 commits in 30 days).
+- Done on 2026-11-26 (branch `storefront-usage-display`, commit `fork(mobile): usage indicator in
+  threads`): `apps/mobile/src/features/threads/ThreadUsageIndicator.tsx`, mounted once in
+  `ThreadDetailScreen.tsx` next to `ThreadBrowserFloat` (an import and one element; the file is hot,
+  55 commits in 30 days).
+- A glass pill at the top right below the header shows the thread's tightest limit: window label,
+  "% left" or "% used" (N2) and a mini bar, amber at 20% left and red at 10%. Tap opens the existing
+  `/usage-limits` panel above the composer. Hidden in drafts and when the account reports no limits.
+- Accurate for the thread: the same resolution as web's thread details card, the instance's own
+  limits or, for an instance behind a CLIProxyAPI hub, the pool of accounts the hub routes the
+  model to. Model-only windows of other models (a "Weekly · Fable" limit for an Opus thread) are
+  left out. That logic moved from `apps/web/src/components/chat/ThreadDetailsUsage.logic.ts` to
+  `packages/shared/src/usageLimitsDisplay.ts` (`resolveThreadLimits`); web re-exports it under its
+  old name, so an upstream change to the web logic must be carried over to the shared copy.
+- Off switch: Settings → Appearance → Usage limits → Show in threads (`threadUsageIndicatorEnabled`
+  in mobile preferences, unset means on).
+- Display only: it shows what the app last received; nothing is fetched for it.
+- Not seen on a device yet (no Mac or simulator in that session); unit test with mocked React Native.
+  It covers the end of message lines at the top right; the floating browser preview sits above it.
 
 ### F5: no T3 Connect, own push
 
@@ -334,6 +347,42 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
     submit with EAS.
 - Requirements from upstream: Xcode 27.1 on macOS Tahoe 26.6 (`eas.json` build image), Node
   26.13.1, pnpm 12.14.0.
+
+### N1: one combined usage meter
+
+- Done on 2026-11-26 (branch `storefront-usage-display`, commit `fork: pooled usage limits draw one
+  combined meter`). Usage → Limits draws one meter per pooled window on web and mobile
+  (`UsageLimitsPooled.tsx` in both apps). Each account fills its share of the pool's capacity times
+  what it has left, so the fill ends at the pool's headline number. The shares are the plan weights
+  the pool's number already used (Codex Plus and Pro, Claude session Pro, Max and Ultra; equal when
+  any plan is unknown), now exposed as `LimitPoolWindow.shares` (3 lines in
+  `packages/shared/src/usageLimits.ts`).
+- Each account keeps its column number in its part of the meter and in its legend row, which now
+  shows at every width and opens the account (web popover, mobile account screen). The coming
+  resets are hatched after the fill; the even-pace mark is the share-weighted time left.
+- Geometry in `poolMeter` (`packages/shared/src/usageLimitsDisplay.ts`), shared by both apps.
+- Not covered: the home-screen widget (`apps/mobile/src/widgets`) still draws one segment per account.
+- Checked on web through Vitest browser screenshots; mobile not seen on a device.
+
+### N2: % used / % remaining
+
+- Done on 2026-11-26 (branch `storefront-usage-display`, commit `fork: usage limits read as % left
+  or % used`). One setting, "% left" (default, unchanged) or "% used", as Ideas #32499 and #30076
+  propose: it flips the numbers, words, bar fill, even-pace mark and screen-reader labels on
+  Usage → Limits (meter, legend, account details, HTTP quota sources), the composer's
+  `/usage-limits` panel, web's thread details card and the mobile thread indicator (F4). Warning
+  colors keep following what is left. Read as used, the pooled meter draws no refill hatching.
+- Web and desktop: `usageLimitDisplay` client setting (`UsageLimitDisplay` in
+  `packages/contracts/src/settings.ts`), Settings → Appearance → Usage limit display
+  (`UsageLimitDisplayRow.tsx`, in the settings search). Mobile: `usageLimitDisplay` in mobile
+  preferences, Settings → Appearance → Usage limits. Each device keeps its own choice.
+- Copy and `shownPercent` live in `packages/shared/src/usageLimitsDisplay.ts`; the "% left" strings
+  keep their existing catalog keys.
+- Translations: the new strings are not in the catalogs (`vp run i18n:check` lists them) and render
+  in English. Run `vp run i18n:generate` in `apps/web` and `apps/mobile` before upstreaming; it was
+  left out so parallel fork branches do not conflict in 20 catalog files.
+- Not covered: the home-screen widgets; web's Appearance "Restore defaults" does not reset it (the
+  row has its own reset).
 
 ### N3: remote API
 
