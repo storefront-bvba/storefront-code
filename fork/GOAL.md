@@ -38,6 +38,9 @@ workflow.
   (`vX.Y.Z`, roughly weekly). Server, desktop and app are built from the same base.
 - **Keep the two docs current.** Every change, PR, sync and decision updates
   [GOAL-CURRENT-STATUS.md](GOAL-CURRENT-STATUS.md).
+- **One server build, one restart per round.** A host restart interrupts Wouter's work, so all
+  changes that touch the server or the web UI are collected and shipped together, and the host
+  restarts once (only when no thread runs). App-only changes ship through TestFlight in between.
 - **Every sync re-checks every goal.** A clean rebase proves nothing: upstream can add telemetry,
   a new outbound connection or a new dependency without touching our patches, and it can fix a
   bug or add a feature we carry ourselves. Never sync blindly; work through the checklist below.
@@ -88,7 +91,7 @@ Before switching any machine to a new build, and recorded in the sync log of
 - **No third party in the data path.** Devices reach hosts over Tailscale (or the trusted LAN at
   home). No T3 Connect, no Clerk, no relay. Push notifications go from our own host straight to
   Apple.
-  - *2026-11-26:* notifications and Live Activities look exactly as they did with upstream, so
+  - _2026-11-26:_ notifications and Live Activities look exactly as they did with upstream, so
     they carry the same fields: project and thread titles, model, phase and status. Apple's push
     service sees those in transit, as it did before. Prompts, replies and file contents never go
     into a push.
@@ -99,11 +102,11 @@ Before switching any machine to a new build, and recorded in the sync log of
 
 ## Branches
 
-| Branch | Content |
-| --- | --- |
-| `main` | Mirror of upstream `main`. Never commit to it. |
-| `storefront` | Default working branch: the newest upstream stable tag plus our patch stack, one commit per change. The `fork/` folder exists only here. |
-| `fix/<topic>` | One upstream PR each, cut from `upstream/main`. Once merged upstream, the matching commit drops out of `storefront` at the next rebase. |
+| Branch        | Content                                                                                                                                  |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `main`        | Mirror of upstream `main`. Never commit to it.                                                                                           |
+| `storefront`  | Default working branch: the newest upstream stable tag plus our patch stack, one commit per change. The `fork/` folder exists only here. |
+| `fix/<topic>` | One upstream PR each, cut from `upstream/main`. Once merged upstream, the matching commit drops out of `storefront` at the next rebase.  |
 
 The `upstream` remote has its push URL disabled on purpose.
 
@@ -133,22 +136,22 @@ Written by Wouter on 2026-11-26. Changes to a wish are noted in place, with a da
   the message. In 99.9% of the cases the message should already be good and you send it right
   away. On the environment's side there is support for Deepgram's API which can do the 2-step
   approach.
-  - *2026-11-26:* approach: an "own endpoint" option for transcription on the environment, with our
+  - _2026-11-26:_ approach: an "own endpoint" option for transcription on the environment, with our
     own small service behind it that calls Deepgram and returns cleaned-up text. Live words while
     speaking need a streaming path and are the larger part.
-  - *2026-11-26:* optimised for Flemish Dutch (nl-BE) with IT jargon in between and short English
+  - _2026-11-26:_ optimised for Flemish Dutch (nl-BE) with IT jargon in between and short English
     phrases or words (code-switching). The Deepgram API key is handed over in `~/Desktop/secret.txt`
     and lives on the host, never in this repository.
 - When you have subagents running, you can't see which model they are and what effort they run at.
 - Seeing a simple usage indicator in a corner while in a thread would be great to know if you're
   running out. This should be accurate for the current thread.
-  - *2026-11-26:* this is display only: the app already has the numbers (Usage page and
+  - _2026-11-26:_ this is display only: the app already has the numbers (Usage page and
     `/usage-limits`); nothing extra has to be fetched.
 - No T3 Connect for connecting environments and apps, but using only Tailscale (or the LAN).
 - Use our own Apple Developer account for push notifications and live updates instead of T3. We
   deploy using TestFlight.
 - Full end-to-end encryption.
-  - *2026-11-26:* nothing to build. Tailscale encrypts device-to-host traffic, the home LAN is
+  - _2026-11-26:_ nothing to build. Tailscale encrypts device-to-host traffic, the home LAN is
     trusted, T3 Connect goes away, and our own push payloads carry no content.
 
 ### Nice to haves
@@ -162,7 +165,7 @@ Written by Wouter on 2026-11-26. Changes to a wish are noted in place, with a da
 
 ### Dropped
 
-- *A monospaced font option.* Dropped on 2026-11-26: not worth the effort (web and desktop already
+- _A monospaced font option._ Dropped on 2026-11-26: not worth the effort (web and desktop already
   have font pickers; mobile would need a new setting).
-- *A visual cue per thread showing its environment.* Dropped on 2026-11-26: the app already shows
+- _A visual cue per thread showing its environment._ Dropped on 2026-11-26: the app already shows
   an environment icon and name when more than one connection is saved.
