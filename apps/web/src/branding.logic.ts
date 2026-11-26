@@ -4,7 +4,8 @@ export function formatAppDisplayName(input: {
   readonly baseName: string;
   readonly stageLabel: string;
 }): string {
-  if (input.stageLabel.trim().toLowerCase() === "latest") {
+  // Storefront Code: our stable builds read as just the name, without "(Beta)".
+  if (["latest", "beta"].includes(input.stageLabel.trim().toLowerCase())) {
     return input.baseName;
   }
 
