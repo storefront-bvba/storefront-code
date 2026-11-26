@@ -175,7 +175,11 @@ function AgentActivity(
   const summary = attentionSuffix || activeLabel;
 
   // Widget taps target the containing app, so its production scheme is safe in every build.
-  const deepLinkRow = attentionRow ?? row0;
+  // Storefront: after a row that needs you, a finished thread is the likelier reason to tap.
+  const deepLinkRow =
+    attentionRow ??
+    ordered.find((row) => row.phase === "failed" || row.phase === "completed") ??
+    row0;
   const deepLink =
     deepLinkRow && deepLinkRow.deepLink.startsWith("/") && !deepLinkRow.deepLink.startsWith("//")
       ? `t3code://${deepLinkRow.deepLink.slice(1)}`
