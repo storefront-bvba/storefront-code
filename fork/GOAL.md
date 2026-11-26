@@ -59,8 +59,9 @@ Before switching any machine to a new build, and recorded in the sync log of
    analytics, tracing, crash-reporting or update SDKs, new defaults that switch something on,
    new background checks. Neutralise each one (config first, a small patch second) before the
    build ships.
-3. **Run the guard** `node fork/scripts/check-telemetry.mjs`. A failure is a finding to resolve,
-   never something to `--update` away without reading it.
+3. **Run the guards** `node fork/scripts/check-telemetry.mjs` and
+   `node fork/scripts/check-push-port.mjs`. A failure is a finding to resolve, never something to
+   `--update` away without reading it.
 4. **Check every built artifact**, not only the source: the Linux runtime and the iOS app must not
    contain `ingest.t3.codes`, a PostHog key, Axiom, `u.expo.dev` or upstream's release source
    (`pingdotgg/t3code/releases`), and must contain our update source.

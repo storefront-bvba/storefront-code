@@ -17,7 +17,14 @@ patch, a PR, a sync, a decision, a finding.
      (`packages/shared/src/cliRelease.ts`, 1 line), so no client or `t3 update` swaps in an upstream build.
   6. `fork:` build and install scripts in `fork/scripts/` (iOS TestFlight, build keychain, App Store
      Connect API, Linux runtime in an Ubuntu container, runtime install with backup).
-- **Run the guard** after every rebase: `node fork/scripts/check-telemetry.mjs`.
+  7. F5, host-sent push (6 commits, 2026-11-26): new files in `apps/server/src/storefront/push/`
+     and `apps/mobile/src/storefront/push/`, `packages/contracts/src/storefrontPush.ts`,
+     `fork/scripts/check-push-port.mjs` and `fork/scripts/apns-check.mjs`; edits of 2-7 lines in
+     `AgentAwarenessRelay.ts`, `cloud/config.ts`, `server.ts`, `environmentHttp.ts`,
+     `CloudAuthProvider.tsx`, `lib/runtime.ts`, `remoteRegistration.ts` and
+     `SettingsNotificationsRouteScreen.tsx` (see F5 below).
+- **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
+  `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied).
 - **Expected upstream test failure:** `apps/mobile/app.config.test.ts` ("keeps the iOS and Android
   identifiers") asserts T3's bundle IDs and domains, so it fails in the fork by design.
 
@@ -26,37 +33,36 @@ patch, a PR, a sync, a decision, a finding.
 Sizes: S = hours, M = a day or two, L = several days. "Upstream" is our estimate of whether
 upstream would take it.
 
-| # | Wish | State | Route | Size | Upstream |
-| --- | --- | --- | --- | --- | --- |
-| B1 | Live Activity tap opens the right thread | Open: cause found in code, not reproduced | Upstream PR (fix); order change in fork | S | Good for the fix |
-| B2 | Selecting text to the left closes the panel | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
-| B3 | Bottom menu bar stays visible in a thread | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
-| F1 | No telemetry or tracking | Fork patch and guard done; Omarchy host still runs official builds with opt-outs | Config + small patch + guard | S | No (on by default upstream) |
-| F2 | 2-step voice input (Deepgram) | Not started | Own endpoint option (Idea #32516, fork meanwhile) + own Deepgram service; live words in fork | M–L | No for now (closed #32530) |
-| F3 | Subagent model and effort visible | Mostly exists; gap for Claude Code's own subagents | Try as bug-fix PR | M | Doubtful to good |
-| F4 | Usage indicator in a thread | Not started; data already in the app | Idea #40926, fork meanwhile | S–M | Doubtful (feature) |
-| F5 | Only Tailscale or LAN, no T3 Connect | Storefront Code paired over Tailscale Serve (2026-11-26); push and Live Activities still need Connect | Fork: host sends push itself | L | No (new connection method) |
-| F6 | Own Apple account, TestFlight | Done: first build uploaded to TestFlight on 2026-11-26 | Fork: `storefront-identity.ts`, `fork/scripts/` | S | No |
-| F7 | Full end-to-end encryption | Decided: nothing to build | Follows from F5 and push design | – | – |
-| N1 | One combined usage meter for pooled accounts | Not started | Fork | S–M | No |
-| N2 | Toggle % used / % remaining | Not started | Fork | S–M | No |
-| N3 | Remote API for ERP / ticket system | Exists via `/mcp`; config gaps | Config, maybe a small patch | S | – |
+| #   | Wish                                         | State                                                                                                                                           | Route                                                                                        | Size | Upstream                    |
+| --- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---- | --------------------------- |
+| B1  | Live Activity tap opens the right thread     | Open: cause found in code, not reproduced                                                                                                       | Upstream PR (fix); order change in fork                                                      | S    | Good for the fix            |
+| B2  | Selecting text to the left closes the panel  | Open: likely cause found, not reproduced                                                                                                        | Upstream PR                                                                                  | S–M  | Good                        |
+| B3  | Bottom menu bar stays visible in a thread    | Open: likely cause found, not reproduced                                                                                                        | Upstream PR                                                                                  | S–M  | Good                        |
+| F1  | No telemetry or tracking                     | Fork patch and guard done; Omarchy host still runs official builds with opt-outs                                                                | Config + small patch + guard                                                                 | S    | No (on by default upstream) |
+| F2  | 2-step voice input (Deepgram)                | Not started                                                                                                                                     | Own endpoint option (Idea #32516, fork meanwhile) + own Deepgram service; live words in fork | M–L  | No for now (closed #32530)  |
+| F3  | Subagent model and effort visible            | Mostly exists; gap for Claude Code's own subagents                                                                                              | Try as bug-fix PR                                                                            | M    | Doubtful to good            |
+| F4  | Usage indicator in a thread                  | Not started; data already in the app                                                                                                            | Idea #40926, fork meanwhile                                                                  | S–M  | Doubtful (feature)          |
+| F5  | Only Tailscale or LAN, no T3 Connect         | Paired over Tailscale Serve; host-sent push built on `storefront` (2026-11-26), not deployed yet (next server build, `service.env`, TestFlight) | Fork: host sends push itself                                                                 | L    | No (new connection method)  |
+| F6  | Own Apple account, TestFlight                | Done: first build uploaded to TestFlight on 2026-11-26                                                                                          | Fork: `storefront-identity.ts`, `fork/scripts/`                                              | S    | No                          |
+| F7  | Full end-to-end encryption                   | Decided: nothing to build                                                                                                                       | Follows from F5 and push design                                                              | –    | –                           |
+| N1  | One combined usage meter for pooled accounts | Not started                                                                                                                                     | Fork                                                                                         | S–M  | No                          |
+| N2  | Toggle % used / % remaining                  | Not started                                                                                                                                     | Fork                                                                                         | S–M  | No                          |
+| N3  | Remote API for ERP / ticket system           | Exists via `/mcp`; config gaps                                                                                                                  | Config, maybe a small patch                                                                  | S    | –                           |
 
 ## Machines
 
-| Machine | State |
-| --- | --- |
-| Omarchy PC (host) | **Runs our build `0.1.12-storefront.31` since 2026-11-26 14:14** (built with `fork/scripts/build-linux-cli.sh`, switched with `fork/scripts/install-runtime.sh`: backup `~/.t3/backups/2026-11-26-1414-before-0.1.12-storefront.31`, threads 432 → 432, telemetry opt-out in the server's environment). `t3` on PATH is ours (`~/.local/bin/t3`). T3 pruned the old 0.1.10 runtime after the switch, so rollback means: restore the database backup and install an earlier archive from `build/linux-cli/`. The web icons, `storefront-mark.svg` and the loading-screen line of `client/index.html` of this runtime were patched in by hand once (the fixes came after the build; the next build has them). `t3code-bin` (desktop app and CLI) removed; Tailscale 1.104.7. The web UI opens from the launcher "Storefront Code" in its own extension-free Chromium profile; the Mac uses `https://omarchy.taila38105.ts.net` in Chrome. |
-| iPhone | Storefront Code from TestFlight, paired over Tailscale. The official T3 Code app (through T3 Connect) stays installed until Storefront Code covers push and Live Activities. |
-| MacBook Air (2025) | Not used yet. Needed for Xcode builds and TestFlight uploads, unless CI builds take over. |
+| Machine            | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Omarchy PC (host)  | **Runs our build `0.1.12-storefront.31` since 2026-11-26 14:14** (built with `fork/scripts/build-linux-cli.sh`, switched with `fork/scripts/install-runtime.sh`: backup `~/.t3/backups/2026-11-26-1414-before-0.1.12-storefront.31`, threads 432 → 432, telemetry opt-out in the server's environment). `t3` on PATH is ours (`~/.local/bin/t3`). T3 pruned the old 0.1.10 runtime after the switch, so rollback means: restore the database backup and install an earlier archive from `build/linux-cli/`. The web icons, `storefront-mark.svg` and the loading-screen line of `client/index.html` of this runtime were patched in by hand once (the fixes came after the build; the next build has them). `t3code-bin` (desktop app and CLI) removed; Tailscale 1.104.7. The web UI opens from the launcher "Storefront Code" in its own extension-free Chromium profile; the Mac uses `https://omarchy.taila38105.ts.net` in Chrome. |
+| iPhone             | Storefront Code from TestFlight, paired over Tailscale. The official T3 Code app (through T3 Connect) stays installed until Storefront Code covers push and Live Activities.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| MacBook Air (2025) | Not used yet. Needed for Xcode builds and TestFlight uploads, unless CI builds take over.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 ## Details
 
 ### B1: Live Activity tap
 
 - Each Live Activity row already carries a thread deep link (`/threads/<env>/<thread>`): the widget
-  turns the chosen row into a `t3code://` URL (`apps/mobile/src/widgets/AgentActivity.tsx`:178-183,
-  271) and the app opens it (`apps/mobile/src/App.tsx`:141-166).
+  turns the chosen row into a `t3code://` URL (`apps/mobile/src/widgets/AgentActivity.tsx`:178-183, 271) and the app opens it (`apps/mobile/src/App.tsx`:141-166).
 - Likely cause: when the app starts a Live Activity itself, the row's deep link is `"/"`
   (`apps/mobile/src/features/agent-awareness/remoteRegistration.ts`:545). That becomes a bare
   `t3code://`, which the app's link filter drops on purpose (`apps/mobile/src/lib/appLinking.ts`:15),
@@ -160,6 +166,31 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
   scoped. On the Omarchy host in `~/.t3/storefront/AuthKey_R2MGM4T6A5.p8` (mode 600, outside the
   repo); a backup copy is in Wouter's password manager.
 - Payloads: the same fields as upstream (decision 2026-11-26), so alerts and Live Activities look as before.
+- **Built on 2026-11-26** (design: [design/F5-host-push.md](design/F5-host-push.md)):
+  - Server (`apps/server/src/storefront/push/`): `HostPushConfig` (the four `STOREFRONT_APNS_*`
+    variables; off without them), `http2HttpClient` (Effect HttpClient on `node:http2`),
+    `DeviceStore` (`<stateDir>/storefront/push-devices.json`, mode 600, no migration),
+    `deliveryPort` (upstream's `ApnsDeliveries.ts` rules, copied), `HostAgentActivity` (publish,
+    replay, idle end, 5-minute sweep, 14-day expiry, session pruning), `HostPush` (one layer for
+    the sink and the endpoints), `http` (the `storefrontPush` endpoints). Upstream's aggregate,
+    alerts, payloads, `ApnsClient`, provider tokens and JWT are imported as they are
+    (`upstreamRelay.ts`); the server bundle resolves `@noble` from `infra/relay/node_modules`.
+  - Seam: with the sink set, `AgentAwarenessRelay` passes its link gates without reading T3
+    Connect's secrets and never calls the relay (guard test `AgentAwarenessRelaySink.test.ts`);
+    the descriptor's `agentActivityPublishing` is true when APNs is configured.
+  - App (`apps/mobile/src/storefront/push/`): the relay client's four agent-awareness calls go
+    to every paired host that publishes agent activity; the first host feeds the Live Activity;
+    a stand-in relay key (hosts, sessions, day) re-registers when a host or session changes and
+    daily; notification settings screen with each host's state and a test push.
+  - APNs check without a phone (`node fork/scripts/apns-check.mjs`, made-up token): sandbox and
+    production both answered 400 `BadDeviceToken`, so Apple accepts the key, team and JWT.
+  - To switch it on, add to `~/.t3/service.env` and restart in the next round:
+    `STOREFRONT_APNS_KEY_FILE=/home/wouter/.t3/storefront/AuthKey_R2MGM4T6A5.p8`,
+    `STOREFRONT_APNS_KEY_ID=R2MGM4T6A5`, `STOREFRONT_APNS_TEAM_ID=2Z43A4WSC3`,
+    `STOREFRONT_APNS_TOPICS=be.storefront.code,be.storefront.code.dev`.
+  - Still open: server build and host switch, TestFlight build, check on the phone (alerts, card,
+    tap), then `t3 connect unlink` on the host. Android gets nothing (no FCM). Two push hosts:
+    alerts from both, the card only from the first.
 
 ### F6: own Apple account
 
@@ -237,13 +268,13 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
 
 ## Upstream contributions
 
-| Item | Kind | State |
-| --- | --- | --- |
-| Own transcription endpoint (F2) | Existing Idea [#32516](https://github.com/pingdotgg/t3code/discussions/32516) (16 upvotes, many +1s, no maintainer reply) | Upvote and add our case (draft for Wouter) |
-| Deepgram as provider (F2) | Existing Idea [#36900](https://github.com/pingdotgg/t3code/discussions/36900) | Covered by #32516 for us |
-| Usage indicator in a thread (F4) | Existing Ideas [#40926](https://github.com/pingdotgg/t3code/discussions/40926), [#41449](https://github.com/pingdotgg/t3code/discussions/41449) | Upvote #40926 and add the mobile case (draft for Wouter) |
-| % used / % remaining (N2) | Existing Ideas [#32499](https://github.com/pingdotgg/t3code/discussions/32499) (15 upvotes), [#30076](https://github.com/pingdotgg/t3code/discussions/30076) | Upvote #32499 |
-| B1, B2, B3 | PRs (3 = the open-PR limit) | After reproducing on our own build |
+| Item                             | Kind                                                                                                                                                         | State                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| Own transcription endpoint (F2)  | Existing Idea [#32516](https://github.com/pingdotgg/t3code/discussions/32516) (16 upvotes, many +1s, no maintainer reply)                                    | Upvote and add our case (draft for Wouter)               |
+| Deepgram as provider (F2)        | Existing Idea [#36900](https://github.com/pingdotgg/t3code/discussions/36900)                                                                                | Covered by #32516 for us                                 |
+| Usage indicator in a thread (F4) | Existing Ideas [#40926](https://github.com/pingdotgg/t3code/discussions/40926), [#41449](https://github.com/pingdotgg/t3code/discussions/41449)              | Upvote #40926 and add the mobile case (draft for Wouter) |
+| % used / % remaining (N2)        | Existing Ideas [#32499](https://github.com/pingdotgg/t3code/discussions/32499) (15 upvotes), [#30076](https://github.com/pingdotgg/t3code/discussions/30076) | Upvote #32499                                            |
+| B1, B2, B3                       | PRs (3 = the open-PR limit)                                                                                                                                  | After reproducing on our own build                       |
 
 Upstream's stance on outside provider work (2026-11-12, Theo closing
 [#32530](https://github.com/pingdotgg/t3code/pull/32530), a custom OpenAI-compatible speech provider
@@ -255,21 +286,21 @@ need.
 
 ## Sync log
 
-| Date | Upstream tag | Notes |
-| --- | --- | --- |
-| 2026-11-26 | v0.1.12 | Omarchy host switched to `0.1.12-storefront.31` (Storefront mark in the web UI). |
-| 2026-11-26 | v0.1.12 | First own builds: iOS TestFlight `202611261129`, Linux runtime `0.1.12-storefront.25` (verified: no `ingest.t3.codes`, no PostHog key, no Axiom, update source `storefront-bvba/storefront-code`). |
-| 2026-11-26 | v0.1.12 | Fork created (`storefront-bvba/storefront-code`); `storefront` branched from the tag. GitHub Actions disabled in the fork (upstream workflows need upstream's runners). |
+| Date       | Upstream tag | Notes                                                                                                                                                                                              |
+| ---------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-26 | v0.1.12      | Omarchy host switched to `0.1.12-storefront.31` (Storefront mark in the web UI).                                                                                                                   |
+| 2026-11-26 | v0.1.12      | First own builds: iOS TestFlight `202611261129`, Linux runtime `0.1.12-storefront.25` (verified: no `ingest.t3.codes`, no PostHog key, no Axiom, update source `storefront-bvba/storefront-code`). |
+| 2026-11-26 | v0.1.12      | Fork created (`storefront-bvba/storefront-code`); `storefront` branched from the tag. GitHub Actions disabled in the fork (upstream workflows need upstream's runners).                            |
 
 ## Decisions
 
-| Date | Decision |
-| --- | --- |
-| 2026-11-26 | Fork upstream directly. Not m3code (huge diff, CI never runs, renumbered migrations) or pseudoseed/t3code_dev (one maintainer, keeps Clerk). |
-| 2026-11-26 | Name: Storefront Code. |
-| 2026-11-26 | Keep T3 Connect until our own push works. |
+| Date       | Decision                                                                                                                                                 |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-26 | Fork upstream directly. Not m3code (huge diff, CI never runs, renumbered migrations) or pseudoseed/t3code_dev (one maintainer, keeps Clerk).             |
+| 2026-11-26 | Name: Storefront Code.                                                                                                                                   |
+| 2026-11-26 | Keep T3 Connect until our own push works.                                                                                                                |
 | 2026-11-26 | Notifications and Live Activities look exactly as before: same fields as upstream's payloads (titles, model, phase, status); Apple sees them in transit. |
-| 2026-11-26 | No separate E2E work; the home LAN is trusted. |
-| 2026-11-26 | Dropped: monospaced font option, environment cue per thread. |
-| 2026-11-26 | Web UI branding kept minimal: only the SVG behind `T3Wordmark` and the web icons change, so the sidebar reads "S Code". |
-| 2026-11-26 | Feature ideas go to upstream's Ideas discussions first; where an Idea already exists, we upvote it and add our case instead of opening a new one. |
+| 2026-11-26 | No separate E2E work; the home LAN is trusted.                                                                                                           |
+| 2026-11-26 | Dropped: monospaced font option, environment cue per thread.                                                                                             |
+| 2026-11-26 | Web UI branding kept minimal: only the SVG behind `T3Wordmark` and the web icons change, so the sidebar reads "S Code".                                  |
+| 2026-11-26 | Feature ideas go to upstream's Ideas discussions first; where an Idea already exists, we upvote it and add our case instead of opening a new one.        |
