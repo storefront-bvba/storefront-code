@@ -32,7 +32,7 @@ upstream would take it.
 | F3 | Subagent model and effort visible | Mostly exists; gap for Claude Code's own subagents | Try as bug-fix PR | M | Doubtful to good |
 | F4 | Usage indicator in a thread | Not started; data already in the app | Idea #40926, fork meanwhile | S–M | Doubtful (feature) |
 | F5 | Only Tailscale or LAN, no T3 Connect | Pairing over Tailscale works today; push needs Connect | Fork: host sends push itself | L | No (new connection method) |
-| F6 | Own Apple account, TestFlight | Identity patch done; Apple team ID, App IDs, app record and Mac build setup open | Fork: `storefront-identity.ts` | S | No |
+| F6 | Own Apple account, TestFlight | Done: first build uploaded to TestFlight on 2026-11-26 | Fork: `storefront-identity.ts`, `fork/scripts/` | S | No |
 | F7 | Full end-to-end encryption | Decided: nothing to build | Follows from F5 and push design | – | – |
 | N1 | One combined usage meter for pooled accounts | Not started | Fork | S–M | No |
 | N2 | Toggle % used / % remaining | Not started | Fork | S–M | No |
@@ -197,7 +197,11 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
   600), Apple Development and Apple Distribution identities created through the API from keys
   generated on the Mac. No user password is needed for builds.
 - Development signing during archive needs at least one registered device: the iPhone 16 Pro Max
-  is registered (`node fork/scripts/asc.mjs device …`); the iPad can follow when needed.
+  and the iPad Pro 12.9" (5th generation) are registered (`node fork/scripts/asc.mjs device …`).
+- **First TestFlight upload: build `202611261129` on 2026-11-26** (base v0.1.12 + fork patches,
+  commit `3aa379cbe`). Follow processing with `node fork/scripts/asc.mjs builds`. The export warns
+  about missing dSYMs for prebuilt frameworks; harmless (we have no crash reporting).
+- The build Mac is reached over the LAN (`192.168.0.153`) when Tailscale is slow to connect.
 - App Groups cannot be created or assigned through the API: `group.be.storefront.code` and
   `group.be.storefront.code.dev` are created and assigned by hand in the developer portal.
 - Still open:

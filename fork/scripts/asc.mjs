@@ -12,6 +12,7 @@
 //   node fork/scripts/asc.mjs certificates                          list signing certificates
 //   node fork/scripts/asc.mjs certificate DEVELOPMENT|DISTRIBUTION <csr.pem> <out.cer>
 //   node fork/scripts/asc.mjs revoke <certificate id>
+//   node fork/scripts/asc.mjs builds     latest uploads: build number, processing state, expiry
 //
 // Reads ASC_KEY_ID, ASC_ISSUER_ID and optionally ASC_KEY_PATH (default
 // ~/.appstoreconnect/private_keys/AuthKey_<ASC_KEY_ID>.p8) from the environment.
@@ -219,6 +220,26 @@ if (command === "ids") {
   });
   writeFileSync(outPath, Buffer.from(created.data.attributes.certificateContent, "base64"));
   console.log(`created ${type} certificate ${created.data.id} (serial ${created.data.attributes.serialNumber})`);
+} else if (command === "builds") {
+  const apps = await api("GET", `/v1/apps?filter[bundleId]=${BASE}`);
+  const app = apps.data?.[0];
+  if (!app) throw new Error(`No App Store Connect app for ${BASE}.`);
+  const result = await api(
+    "GET",
+    `/v1/builds?filter[app]=${app.id}&sort=-uploadedDate&limit=10&include=buildBetaDetail`,
+  );
+  const details = new Map(
+    (result.included ?? [])
+      .filter((item) => item.type === "buildBetaDetails")
+      .map((item) => [item.id, item.attributes]),
+  );
+  for (const build of result.data ?? []) {
+    const { version, processingState, uploadedDate, expirationDate, expired } = build.attributes;
+    const detail = details.get(build.relationships?.buildBetaDetail?.data?.id) ?? {};
+    console.log(
+      `${version}  ${processingState}  internal:${detail.internalBuildState ?? "?"}  uploaded ${uploadedDate?.slice(0, 16)}  ${expired ? "expired" : `expires ${expirationDate?.slice(0, 10)}`}`,
+    );
+  }
 } else if (command === "revoke") {
   const [id] = process.argv.slice(3);
   if (!id) throw new Error("Usage: node fork/scripts/asc.mjs revoke <certificate id>");
@@ -226,7 +247,7 @@ if (command === "ids") {
   console.log(`revoked ${id}`);
 } else {
   console.error(
-    "Usage: node fork/scripts/asc.mjs ids|register|testers|apps|devices|device|certificates|certificate|revoke",
+    "Usage: node fork/scripts/asc.mjs ids|register|testers|apps|devices|device|certificates|certificate|revoke|builds",
   );
   process.exit(2);
 }
