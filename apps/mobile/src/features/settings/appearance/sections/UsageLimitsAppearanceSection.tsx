@@ -9,6 +9,7 @@ import { ListChoiceRow } from "../../../../components/ui/ListChoiceRow";
 import { mobilePreferencesAtom, saveMobilePreferences } from "../../../../state/preferences";
 import { useAtomCommand } from "../../../../state/use-atom-command";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSwitchRow } from "../../components/SettingsSwitchRow";
 
 const USAGE_LIMIT_DISPLAY_OPTIONS: ReadonlyArray<{
   readonly value: UsageLimitDisplay;
@@ -25,6 +26,7 @@ export function UsageLimitsAppearanceSection() {
   const preferences = useAtomValue(mobilePreferencesAtom);
   const loaded = AsyncResult.isSuccess(preferences);
   const display = loaded ? (preferences.value.usageLimitDisplay ?? "remaining") : null;
+  const inThreads = loaded && preferences.value.threadUsageIndicatorEnabled !== false;
 
   return (
     <View className="gap-3">
@@ -41,9 +43,21 @@ export function UsageLimitsAppearanceSection() {
             }}
           />
         ))}
+        <SettingsSwitchRow
+          disabled={!loaded}
+          icon="chart.bar.xaxis"
+          label={gt("Show in threads")}
+          value={inThreads}
+          onValueChange={(value) => {
+            void savePreferences({ threadUsageIndicatorEnabled: value });
+          }}
+        />
       </SettingsSection>
       <Text className="px-2 text-sm text-foreground-muted">
-        <T>Show usage limits as the share left or the share used. Numbers and bars follow.</T>
+        <T>
+          Show usage limits as the share left or the share used. Numbers and bars follow. Threads
+          show their account&apos;s tightest limit in the top corner; tap it for all limits.
+        </T>
       </Text>
     </View>
   );

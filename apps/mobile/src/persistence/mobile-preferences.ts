@@ -173,6 +173,8 @@ export interface Preferences {
   readonly projectGroupingMode?: SidebarProjectGroupingMode;
   readonly toolCallVisibility?: ToolCallVisibility;
   readonly usageLimitDisplay?: UsageLimitDisplay;
+  /** Unset means on: threads show their tightest usage limit in the corner. */
+  readonly threadUsageIndicatorEnabled?: boolean;
   readonly workingShelfEnabled?: boolean;
   /** The kind of question the Workflows tab's Needs you list was last narrowed to. */
   readonly workflowQuestionKind?: string;
@@ -269,6 +271,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     projectGroupingMode?: SidebarProjectGroupingMode;
     toolCallVisibility?: ToolCallVisibility;
     usageLimitDisplay?: UsageLimitDisplay;
+    threadUsageIndicatorEnabled?: boolean;
     workingShelfEnabled?: boolean;
     workflowQuestionKind?: string;
     useLastProjectForNewThreads?: boolean;
@@ -418,6 +421,9 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (isUsageLimitDisplay(parsed.usageLimitDisplay)) {
     preferences.usageLimitDisplay = parsed.usageLimitDisplay;
+  }
+  if (typeof parsed.threadUsageIndicatorEnabled === "boolean") {
+    preferences.threadUsageIndicatorEnabled = parsed.threadUsageIndicatorEnabled;
   }
   if (typeof parsed.workingShelfEnabled === "boolean") {
     preferences.workingShelfEnabled = parsed.workingShelfEnabled;

@@ -9,6 +9,7 @@ import {
   limitWindowTimeText,
   poolMeter,
   shownPercent,
+  threadLimitWindows,
 } from "./usageLimitsDisplay.ts";
 
 const now = Date.parse("2026-09-03T12:00:00.000Z");
@@ -168,5 +169,55 @@ describe("usage limit display", () => {
     expect(Math.round(max!.width + pro!.width)).toBe(100 - pool.remainingPercent);
     expect(meter.refills).toEqual([]);
     expect(meter.paceMark).toBeCloseTo(100 - poolMeter(pool, now).paceMark!);
+  });
+});
+
+describe("threadLimitWindows", () => {
+  const fable = {
+    ...weekly,
+    id: "seven_day_fable",
+    label: "Weekly · Fable",
+    usedPercent: 95,
+    modelIds: ["claude-fable"],
+  };
+
+  it("keeps an instance's windows that count the thread's model", () => {
+    const limits = { checkedAt: "2026-09-03T11:00:00.000Z", windows: [session, weekly, fable] };
+
+    expect(
+      threadLimitWindows({ kind: "instance", limits }, "claude-opus").map((window) => [
+        window.label,
+        window.remainingPercent,
+      ]),
+    ).toEqual([
+      ["Session", 60],
+      ["Weekly", 90],
+    ]);
+    expect(threadLimitWindows({ kind: "instance", limits }, "claude-fable")).toHaveLength(3);
+  });
+
+  it("reads pooled windows as the pool's remaining share", () => {
+    const pool = collectLimitPools(
+      [
+        account("a", undefined, [session]),
+        account("b", undefined, [{ ...session, usedPercent: 0 }]),
+      ],
+      now,
+    )[0]!;
+
+    expect(threadLimitWindows({ kind: "pool", windows: pool.windows }, null)).toEqual([
+      { key: "session:five_hour", label: "Session", remainingPercent: 80 },
+    ]);
+  });
+
+  it("shows nothing for an account without readable limits", () => {
+    const unavailable = {
+      checkedAt: "2026-09-03T11:00:00.000Z",
+      windows: [],
+      unavailable: { reason: "probeFailed" as const },
+    };
+
+    expect(threadLimitWindows({ kind: "instance", limits: unavailable }, null)).toEqual([]);
+    expect(threadLimitWindows(null, null)).toEqual([]);
   });
 });

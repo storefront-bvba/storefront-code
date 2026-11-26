@@ -163,6 +163,10 @@ row to see when it resets and your pace. Turn on **Context window** to also show
 context use against the model's limit. A tick on the bar marks where the provider compacts
 automatically, when it reports that point.
 
+On mobile, a thread shows the tightest limit of its account in the top corner, or of the pool when
+its provider goes through a hub. Tap it to open all of the thread's limits above the composer. Turn
+it off with **Show in threads** in **Settings → Appearance → Usage limits**.
+
 OpenCode Go reports its session, weekly, and monthly allowance when OpenCode runs locally in
 the environment. T3 cannot report limits for external OpenCode servers because their credentials
 belong to the remote server. Limits need an OpenCode Go API key, or an OpenCode Console connected

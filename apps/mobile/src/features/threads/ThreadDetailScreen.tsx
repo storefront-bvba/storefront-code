@@ -151,6 +151,7 @@ import { deviceEnvironment } from "../../state/device";
 import { useEnvironmentQuery } from "../../state/query";
 import { threadDevicePreviews } from "../devices/threadDevicePreviews";
 import { ThreadBrowserFloat } from "../browser/ThreadBrowserFloat";
+import { ThreadUsageIndicator } from "./ThreadUsageIndicator";
 import { useThreadServerBrowserTabs } from "../../state/preview";
 import type { QueuedThreadMessage } from "../../state/thread-outbox-model";
 import { scopedThreadKey } from "../../lib/scopedEntities";
@@ -1605,6 +1606,14 @@ function ThreadDetailBody(
         <View className="flex-1" />
       )}
 
+      {showContent && !props.draftMode ? (
+        <ThreadUsageIndicator
+          serverConfig={props.serverConfig}
+          modelSelection={props.selectedThread.modelSelection}
+          top={navigationHeaderHeight + 8}
+          onOpen={showUsageLimits}
+        />
+      ) : null}
       {showContent ? (
         <ThreadBrowserFloat
           key={selectedThreadKey}
