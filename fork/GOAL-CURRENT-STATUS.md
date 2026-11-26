@@ -6,7 +6,16 @@ patch, a PR, a sync, a decision, a finding.
 - **Fork base:** upstream `v0.1.12` (2026-11-24), branch `storefront`.
 - **Last checked against upstream:** `main` at `00fa6cd60c` (2026-11-26). File references below are
   from that commit; line numbers drift.
-- **Patches carried:** none yet (only this `fork/` folder and one line in `CLAUDE.md`).
+- **Patches carried** (commits on `storefront`, oldest first):
+  1. `fork:` goal and status docs; `CLAUDE.md` imports `fork/GOAL.md`.
+  2. `fork(server):` product analytics off by default, empty built-in PostHog key and host
+     (`apps/server/src/telemetry/AnalyticsService.ts`, 4 lines).
+  3. `fork(mobile):` app identity in `apps/mobile/storefront-identity.ts`, applied by the last line
+     of `apps/mobile/app.config.ts` (plus one import), icon in `fork/assets/`.
+  4. `fork:` telemetry guard `fork/scripts/check-telemetry.mjs` with `fork/telemetry-baseline.json`.
+- **Run the guard** after every rebase: `node fork/scripts/check-telemetry.mjs`.
+- **Expected upstream test failure:** `apps/mobile/app.config.test.ts` ("keeps the iOS and Android
+  identifiers") asserts T3's bundle IDs and domains, so it fails in the fork by design.
 
 ## Overview
 
@@ -18,12 +27,12 @@ upstream would take it.
 | B1 | Live Activity tap opens the right thread | Open: cause found in code, not reproduced | Upstream PR (fix); order change in fork | S | Good for the fix |
 | B2 | Selecting text to the left closes the panel | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
 | B3 | Bottom menu bar stays visible in a thread | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
-| F1 | No telemetry or tracking | Opt-outs set on the Omarchy host; fork patch and guard test still to do | Config + small patch + guard test | S | No (on by default upstream) |
+| F1 | No telemetry or tracking | Fork patch and guard done; Omarchy host still runs official builds with opt-outs | Config + small patch + guard | S | No (on by default upstream) |
 | F2 | 2-step voice input (Deepgram) | Not started | Own endpoint option (Idea #32516, fork meanwhile) + own Deepgram service; live words in fork | M–L | No for now (closed #32530) |
 | F3 | Subagent model and effort visible | Mostly exists; gap for Claude Code's own subagents | Try as bug-fix PR | M | Doubtful to good |
 | F4 | Usage indicator in a thread | Not started; data already in the app | Idea #40926, fork meanwhile | S–M | Doubtful (feature) |
 | F5 | Only Tailscale or LAN, no T3 Connect | Pairing over Tailscale works today; push needs Connect | Fork: host sends push itself | L | No (new connection method) |
-| F6 | Own Apple account, TestFlight | Not started | Fork: `app.config.ts`, `eas.json` | S | No |
+| F6 | Own Apple account, TestFlight | Identity patch done; Apple team ID, App IDs, app record and Mac build setup open | Fork: `storefront-identity.ts` | S | No |
 | F7 | Full end-to-end encryption | Decided: nothing to build | Follows from F5 and push design | – | – |
 | N1 | One combined usage meter for pooled accounts | Not started | Fork | S–M | No |
 | N2 | Toggle % used / % remaining | Not started | Fork | S–M | No |
@@ -156,7 +165,25 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
   App Group, an APNs key (.p8).
 - Build without EAS: `expo prebuild -p ios` with `T3CODE_MOBILE_UPDATES_ENABLED=0`, then Xcode
   Archive and upload. Internal TestFlight needs no Beta App Review; builds expire after 90 days.
-- Proposed identifiers (not registered yet): name "Storefront Code", bundle ID `be.storefront.code`.
+- Done in `apps/mobile/storefront-identity.ts` (verified by evaluating `app.config.ts` for the
+  production and development variants: no `t3tools`, "T3 Code" or `t3.codes` left in the config):
+  - name "Storefront Code" (Dev/Preview variants get the suffix), icon from the Storefront mark;
+  - bundle IDs `be.storefront.code`, `.dev`, `.preview`, each with `.widgets` and `.sharing`;
+    App Group `group.<bundle ID>`; keychain group follows the bundle ID;
+  - no associated domains, no Sign in with Apple, no Expo `owner`, project ID or updates, no
+    default trace URL, no `app.t3.codes` Android intent filter.
+- Still open:
+  - `STOREFRONT_APPLE_TEAM_ID` is empty until the team ID is known.
+  - URL scheme stays `t3code` (and `t3code-dev`, `t3code-preview`): changing it means editing
+    `src/App.tsx`:143-145, both widget files and `package.json` scripts. Widget and Live Activity
+    taps go to the app that owns them, but a `t3code://` link opened elsewhere may open the
+    official app while both are installed.
+  - The widget mark (`apps/mobile/assets/widget/T3Mark.svg`) and texts inside the app still say
+    T3; fine for our own TestFlight, to replace before any wider distribution.
+  - `eas.json` still names T3's App Store app (`ascAppId`); unused, because we do not build or
+    submit with EAS.
+- Requirements from upstream: Xcode 27.1 on macOS Tahoe 26.6 (`eas.json` build image), Node
+  26.13.1, pnpm 12.14.0.
 
 ### N3: remote API
 
