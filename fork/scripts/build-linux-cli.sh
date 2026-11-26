@@ -15,7 +15,7 @@ cd "$(dirname "$0")/../.."
 ROOT=$PWD
 VERSION="${1:-}"
 if [ -z "$VERSION" ]; then
-	base=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]' HEAD | sed 's/^v//')
+	base=$(git describe --tags --abbrev=0 --exclude '*-*' HEAD | sed 's/^v//')
 	VERSION="${base}-storefront.$(git rev-list --count "v${base}..HEAD")"
 fi
 NODE_VERSION=$(node -p "require('./package.json').engines.node")
