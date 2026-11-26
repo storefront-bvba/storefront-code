@@ -27,7 +27,7 @@ patch, a PR, a sync, a decision, a finding.
      (`packages/shared/src/favicon.ts`, 1 line plus a comment; two tests follow).
   9. `fork:` the guard checks hard-coded hosts and built artifacts; the Linux build runs it.
   10. `fork:` the runtime install backs up `secrets/` and `attachments/` and checks the managed
-     policy with the new runtime before the switch.
+      policy with the new runtime before the switch.
   11. `fork(server):` triage off: no triage capability (`apps/server/src/environment/ServerEnvironment.ts`,
       1 line) and `t3 triage` refuses unless `STOREFRONT_TRIAGE=1` (`apps/server/src/cli/triage.ts`, 5 lines).
   12. `fork(web):` "Storefront Code" in window titles and the web manifest (`apps/web/src/branding.ts`,
@@ -36,11 +36,11 @@ patch, a PR, a sync, a decision, a finding.
       client in the Linux build.
   14. `fork:` host configuration templates in `fork/host/` (managed policy, service environment).
   15. `fork(server):` Deepgram transcription on the environment (`apps/server/src/storefront/deepgram/`,
-     one line in `apps/server/src/server.ts`). F2.
+      one line in `apps/server/src/server.ts`). F2.
   16. `fork(mobile):` live words while dictating to an environment (`apps/mobile/src/storefront/voice/`,
-     one-line mounts in `VoiceInputProvider.tsx`, `voiceDestination.ts`, `ComposerDictationControl.tsx`). F2.
+      one-line mounts in `VoiceInputProvider.tsx`, `voiceDestination.ts`, `ComposerDictationControl.tsx`). F2.
   17. `fork(mobile):` transcript cleanup on the phone after Deepgram dictation
-     (`apps/mobile/src/storefront/voice/transcriptCleanup.ts`, one line in `VoiceInputProvider.tsx`). F2.
+      (`apps/mobile/src/storefront/voice/transcriptCleanup.ts`, one line in `VoiceInputProvider.tsx`). F2.
 - **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
   `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied). The Linux build runs
   it on the source, runs `fork/scripts/check-build.sh`, and checks its own archive with
@@ -63,21 +63,21 @@ patch, a PR, a sync, a decision, a finding.
 Sizes: S = hours, M = a day or two, L = several days. "Upstream" is our estimate of whether
 upstream would take it.
 
-| # | Wish | State | Route | Size | Upstream |
-| --- | --- | --- | --- | --- | --- |
-| B1 | Live Activity tap opens the right thread | Open: cause found in code, not reproduced | Upstream PR (fix); order change in fork | S | Good for the fix |
-| B2 | Selecting text to the left closes the panel | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
-| B3 | Bottom menu bar stays visible in a thread | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
-| F1 | No telemetry or tracking | Fork patches, guard and build checks done; host runs our build with opt-outs; managed policy ready, not installed | Config + small patch + guard | S | No (on by default upstream) |
-| F2 | 2-step voice input (Deepgram) | Built and tested with the real key on the host side (2026-11-26); iPhone/iPad part needs a device test; host needs one `service.env` line | Fork: Deepgram backend behind the environment's speech service, live stream from web and app, upstream's cleanup step | M–L | No for now (closed #32530) |
-| F3 | Subagent model and effort visible | Fixed on branch `storefront-f3-subagents` (2026-11-26): effort shows while a Claude Code subagent runs; not yet merged into `storefront` or live | Fork patch now, upstream bug-fix PR later | S | Good (follows #35333 and #43023) |
-| F4 | Usage indicator in a thread | Done in fork (branch `storefront-usage-display`, 2026-11-26); not yet seen on a device | Own file + one mount; Idea #40926 | S–M | Doubtful (feature) |
-| F5 | Only Tailscale or LAN, no T3 Connect | Paired over Tailscale Serve; host-sent push built on `storefront` (2026-11-26), not deployed yet (next server build, `service.env`, TestFlight) | Fork: host sends push itself | L | No (new connection method) |
-| F6 | Own Apple account, TestFlight | Done: first build uploaded to TestFlight on 2026-11-26 | Fork: `storefront-identity.ts`, `fork/scripts/` | S | No |
-| F7 | Full end-to-end encryption | Decided: nothing to build | Follows from F5 and push design | – | – |
-| N1 | One combined usage meter for pooled accounts | Done in fork (branch `storefront-usage-display`); web checked in a browser, mobile not on a device | Fork | S–M | No |
-| N2 | Toggle % used / % remaining | Done in fork (branch `storefront-usage-display`), web and mobile; new strings not in the catalogs yet | Fork; design follows Ideas #32499 and #30076 | S–M | Possible once a maintainer agrees (#32499) |
-| N3 | Remote API for ERP / ticket system | Exists via `/mcp`; config gaps | Config, maybe a small patch | S | – |
+| #   | Wish                                         | State                                                                                                                                            | Route                                                                                                                 | Size | Upstream                                   |
+| --- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------ |
+| B1  | Live Activity tap opens the right thread     | Open: cause found in code, not reproduced                                                                                                        | Upstream PR (fix); order change in fork                                                                               | S    | Good for the fix                           |
+| B2  | Selecting text to the left closes the panel  | Open: likely cause found, not reproduced                                                                                                         | Upstream PR                                                                                                           | S–M  | Good                                       |
+| B3  | Bottom menu bar stays visible in a thread    | Open: likely cause found, not reproduced                                                                                                         | Upstream PR                                                                                                           | S–M  | Good                                       |
+| F1  | No telemetry or tracking                     | Fork patches, guard and build checks done; host runs our build with opt-outs; managed policy installed, active from the next restart             | Config + small patch + guard                                                                                          | S    | No (on by default upstream)                |
+| F2  | 2-step voice input (Deepgram)                | Built and tested with the real key on the host side (2026-11-26); iPhone/iPad part needs a device test; host needs one `service.env` line        | Fork: Deepgram backend behind the environment's speech service, live stream from web and app, upstream's cleanup step | M–L  | No for now (closed #32530)                 |
+| F3  | Subagent model and effort visible            | Fixed on branch `storefront-f3-subagents` (2026-11-26): effort shows while a Claude Code subagent runs; not yet merged into `storefront` or live | Fork patch now, upstream bug-fix PR later                                                                             | S    | Good (follows #35333 and #43023)           |
+| F4  | Usage indicator in a thread                  | Done in fork (branch `storefront-usage-display`, 2026-11-26); not yet seen on a device                                                           | Own file + one mount; Idea #40926                                                                                     | S–M  | Doubtful (feature)                         |
+| F5  | Only Tailscale or LAN, no T3 Connect         | Paired over Tailscale Serve; host-sent push built on `storefront` (2026-11-26), not deployed yet (next server build, `service.env`, TestFlight)  | Fork: host sends push itself                                                                                          | L    | No (new connection method)                 |
+| F6  | Own Apple account, TestFlight                | Done: first build uploaded to TestFlight on 2026-11-26                                                                                           | Fork: `storefront-identity.ts`, `fork/scripts/`                                                                       | S    | No                                         |
+| F7  | Full end-to-end encryption                   | Decided: nothing to build                                                                                                                        | Follows from F5 and push design                                                                                       | –    | –                                          |
+| N1  | One combined usage meter for pooled accounts | Done in fork (branch `storefront-usage-display`); web checked in a browser, mobile not on a device                                               | Fork                                                                                                                  | S–M  | No                                         |
+| N2  | Toggle % used / % remaining                  | Done in fork (branch `storefront-usage-display`), web and mobile; new strings not in the catalogs yet                                            | Fork; design follows Ideas #32499 and #30076                                                                          | S–M  | Possible once a maintainer agrees (#32499) |
+| N3  | Remote API for ERP / ticket system           | Exists via `/mcp`; config gaps                                                                                                                   | Config, maybe a small patch                                                                                           | S    | –                                          |
 
 ## Machines
 
@@ -90,12 +90,13 @@ upstream would take it.
 ## Host configuration
 
 What the Omarchy host needs outside the repository; how to install it is in
-[host/README.md](host/README.md). **Not applied yet** (2026-11-26): apply at the next host restart,
-together with the next runtime switch.
+[host/README.md](host/README.md).
 
 - **Managed policy** `/etc/t3code/policy.json` (root-owned, mode 644), from
   [host/policy.json](host/policy.json): telemetry off, no update checks or updates, provider update
-  checks locked off. Checked with `t3 policy check` of `0.1.12-storefront.31`.
+  checks locked off. **Installed on 2026-11-26 at 17:43**, after the switch to
+  `0.1.12-storefront.68` (checked with that runtime's `t3 policy check`). The running server loads
+  it at its next restart, the next server round; `t3 policy show` says so until then.
   `fork/scripts/install-runtime.sh` checks it with every new runtime before switching.
 - **Later, once our own push works (F5):** add `"connect": false` to `limits` (unlinks T3 Connect).
 - **`~/.t3/service.env`** must hold `T3CODE_TELEMETRY_ENABLED=false` and `T3CODE_LAN=false` (both
@@ -476,24 +477,24 @@ need.
 
 ## Sync log
 
-| Date | Upstream tag | Notes |
-| --- | --- | --- |
-| 2026-11-26 | v0.1.12 | Hardening branch built as `0.1.12-storefront.48` (not installed): guard, gate (typecheck, tests), web boot, smoke test and artifact check passed; title and manifest say Storefront Code, no Google favicon URL. The previous script would have failed after the web build (quoting), fixed. |
-| 2026-11-26 | v0.1.12 | Omarchy host switched to `0.1.12-storefront.31` (Storefront mark in the web UI). |
-| 2026-11-26 | v0.1.12 | First own builds: iOS TestFlight `202611261129`, Linux runtime `0.1.12-storefront.25` (verified: no `ingest.t3.codes`, no PostHog key, no Axiom, update source `storefront-bvba/storefront-code`). |
-| 2026-11-26 | v0.1.12 | Fork created (`storefront-bvba/storefront-code`); `storefront` branched from the tag. GitHub Actions disabled in the fork (upstream workflows need upstream's runners). |
+| Date       | Upstream tag | Notes                                                                                                                                                                                                                                                                                        |
+| ---------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-26 | v0.1.12      | Hardening branch built as `0.1.12-storefront.48` (not installed): guard, gate (typecheck, tests), web boot, smoke test and artifact check passed; title and manifest say Storefront Code, no Google favicon URL. The previous script would have failed after the web build (quoting), fixed. |
+| 2026-11-26 | v0.1.12      | Omarchy host switched to `0.1.12-storefront.31` (Storefront mark in the web UI).                                                                                                                                                                                                             |
+| 2026-11-26 | v0.1.12      | First own builds: iOS TestFlight `202611261129`, Linux runtime `0.1.12-storefront.25` (verified: no `ingest.t3.codes`, no PostHog key, no Axiom, update source `storefront-bvba/storefront-code`).                                                                                           |
+| 2026-11-26 | v0.1.12      | Fork created (`storefront-bvba/storefront-code`); `storefront` branched from the tag. GitHub Actions disabled in the fork (upstream workflows need upstream's runners).                                                                                                                      |
 
 ## Decisions
 
-| Date       | Decision                                                                                                                                                 |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-11-26 | Fork upstream directly. Not m3code (huge diff, CI never runs, renumbered migrations) or pseudoseed/t3code_dev (one maintainer, keeps Clerk).             |
-| 2026-11-26 | Name: Storefront Code.                                                                                                                                   |
-| 2026-11-26 | Keep T3 Connect until our own push works.                                                                                                                |
-| 2026-11-26 | Notifications and Live Activities look exactly as before: same fields as upstream's payloads (titles, model, phase, status); Apple sees them in transit. |
-| 2026-11-26 | No separate E2E work; the home LAN is trusted. |
-| 2026-11-26 | Dropped: monospaced font option, environment cue per thread. |
-| 2026-11-26 | Web UI branding kept minimal: only the SVG behind `T3Wordmark`, the web icons, window titles and the web manifest's name change, so the sidebar reads "S Code" and tabs say "Storefront Code"; body texts keep "T3 Code". |
-| 2026-11-26 | Feature ideas go to upstream's Ideas discussions first; where an Idea already exists, we upvote it and add our case instead of opening a new one. |
+| Date       | Decision                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-26 | Fork upstream directly. Not m3code (huge diff, CI never runs, renumbered migrations) or pseudoseed/t3code_dev (one maintainer, keeps Clerk).                                                                                                                                                                                                                                                      |
+| 2026-11-26 | Name: Storefront Code.                                                                                                                                                                                                                                                                                                                                                                            |
+| 2026-11-26 | Keep T3 Connect until our own push works.                                                                                                                                                                                                                                                                                                                                                         |
+| 2026-11-26 | Notifications and Live Activities look exactly as before: same fields as upstream's payloads (titles, model, phase, status); Apple sees them in transit.                                                                                                                                                                                                                                          |
+| 2026-11-26 | No separate E2E work; the home LAN is trusted.                                                                                                                                                                                                                                                                                                                                                    |
+| 2026-11-26 | Dropped: monospaced font option, environment cue per thread.                                                                                                                                                                                                                                                                                                                                      |
+| 2026-11-26 | Web UI branding kept minimal: only the SVG behind `T3Wordmark`, the web icons, window titles and the web manifest's name change, so the sidebar reads "S Code" and tabs say "Storefront Code"; body texts keep "T3 Code".                                                                                                                                                                         |
+| 2026-11-26 | Feature ideas go to upstream's Ideas discussions first; where an Idea already exists, we upvote it and add our case instead of opening a new one.                                                                                                                                                                                                                                                 |
 | 2026-11-26 | Hardening after the fork review (`~/.local/share/storefront-code/fork-analysis-2026-11-26.md`): privacy goes into a managed policy, triage is off (it reports to upstream), and the Linux build gates on typecheck, tests, the telemetry guard and an artifact check. Copied "Copy thread" links in the web UI keep pointing at `app.t3.codes` (changing them is M and touches `threadLinks.ts`). |
-| 2026-11-26 | Voice (F2): Deepgram runs behind the environment's own speech service and stream, not as a separate service; nova-3 multilingual with nl-BE and en hints on the EU endpoint; on the phone, cleanup runs automatically when the environment uses Deepgram. |
+| 2026-11-26 | Voice (F2): Deepgram runs behind the environment's own speech service and stream, not as a separate service; nova-3 multilingual with nl-BE and en hints on the EU endpoint; on the phone, cleanup runs automatically when the environment uses Deepgram.                                                                                                                                         |
