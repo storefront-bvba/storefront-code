@@ -519,6 +519,8 @@ export interface LimitPoolWindow {
   >;
   readonly remainingPercent: number;
   readonly usedPercent: number;
+  /** Each member account's share of the pool's capacity, by account key; shares sum to 1. */
+  readonly shares: ReadonlyMap<string, number>;
   readonly pace: LimitPace | null;
   readonly resets: ReadonlyArray<{
     readonly member: LimitPoolMember;
@@ -767,6 +769,7 @@ function poolWindows(accounts: readonly LimitAccount[], now: number): readonly L
       ),
       usedPercent: Math.round(usedPercent),
       remainingPercent: Math.round(100 - usedPercent),
+      shares: new Map(members.map((m) => [m.account.key, weightOf.get(m)! / totalWeight])),
       pace: meanElapsed === null ? null : paceOfShares(timedUsed, meanElapsed),
       resets,
     };

@@ -18,8 +18,9 @@ import {
   collectLimitNotices,
   cursorUsageWindowDetails,
 } from "@t3tools/shared/usageLimitsCopy";
+import { poolMeter, type PoolMeterPiece } from "@t3tools/shared/usageLimitsDisplay";
 import { msg, T, useGT, useMessages, Var } from "gt-react-native";
-import { Fragment, type ReactNode, useId, useState } from "react";
+import { Fragment, useId, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useNowMinuteMs } from "../../lib/clock";
 import { tryOpenExternalUrl } from "../../lib/openExternalUrl";
@@ -55,84 +56,13 @@ function emailInitials(email: string) {
   return `${local[0] ?? ""}${domain[0] ?? ""}`.toUpperCase();
 }
 
-function accountHue(email: string) {
-  let hash = 0;
-  for (let index = 0; index < email.length; index += 1) {
-    hash = (hash * 31 + email.charCodeAt(index)) | 0;
-  }
-  return Math.abs(hash) % 360;
-}
-
-// Same hashed hue as the web account chip, so an account keeps its color across clients.
-function AccountChip({ email }: { readonly email: string }) {
-  const hue = accountHue(email);
-  return (
-    <View
-      className="size-5 items-center justify-center rounded-full"
-      style={{ backgroundColor: `hsl(${hue}, 45%, 82%)` }}
-    >
-      <Text className="text-[9px] font-t3-bold" style={{ color: `hsl(${hue}, 45%, 28%)` }}>
-        {emailInitials(email)}
-      </Text>
-    </View>
-  );
-}
-
-// Same gap-and-tick as the Limits rows: two clipped copies of the segment leave a see-through gap.
-function PaceGap({
-  timeLeft,
-  children,
+// What each account's next reset restores, hatched in that account's color.
+function MeterHatches({
+  refills,
+  colorOf,
 }: {
-  readonly timeLeft: number | null;
-  readonly children: ReactNode;
-}) {
-  const [width, setWidth] = useState(0);
-  const tickX =
-    timeLeft === null || width < 6
-      ? null
-      : Math.min(Math.max((width * timeLeft) / 100, 3), width - 3);
-  return (
-    <View
-      pointerEvents="none"
-      className="absolute inset-0"
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-    >
-      {tickX === null
-        ? children
-        : (
-            [
-              [0, tickX - 3],
-              [tickX + 3, width],
-            ] as const
-          ).map(([start, end]) => (
-            <View
-              key={start}
-              className="absolute top-0 bottom-0 overflow-hidden"
-              style={{ left: start, width: end - start }}
-            >
-              <View className="absolute top-0 bottom-0" style={{ left: -start, width }}>
-                {children}
-              </View>
-            </View>
-          ))}
-      {tickX !== null ? (
-        <View
-          className="absolute top-0.5 bottom-0.5 w-0.5 rounded-full bg-foreground"
-          style={{ left: tickX - 1 }}
-        />
-      ) : null}
-    </View>
-  );
-}
-
-function AccountSegment({
-  remaining,
-  color,
-  refillPercent,
-}: {
-  readonly remaining: number;
-  readonly color: string;
-  readonly refillPercent: number;
+  readonly refills: readonly PoolMeterPiece[];
+  readonly colorOf: (account: LimitAccount) => string;
 }) {
   const patternId = useId().replace(/:/g, "");
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -147,23 +77,36 @@ function AccountSegment({
         );
       }}
     >
-      {size.width > 0 && size.height > 0 ? (
+      {size.width > 0 && size.height > 0 && refills.length > 0 ? (
         // Numeric canvas dimensions clear Android SVG geometry cached before a segment resized.
         <Svg width={size.width} height={size.height} accessible={false}>
           <Defs>
-            <Pattern id={patternId} width={6} height={6} patternUnits="userSpaceOnUse">
-              <Path d="M-1 1L1 -1M0 6L6 0M5 7L7 5" stroke={color} strokeWidth={1} opacity={0.22} />
-            </Pattern>
+            {refills.map((refill, index) => (
+              <Pattern
+                key={refill.member.account.key}
+                id={`${patternId}-${index}`}
+                width={6}
+                height={6}
+                patternUnits="userSpaceOnUse"
+              >
+                <Path
+                  d="M-1 1L1 -1M0 6L6 0M5 7L7 5"
+                  stroke={colorOf(refill.member.account)}
+                  strokeWidth={1}
+                  opacity={0.22}
+                />
+              </Pattern>
+            ))}
           </Defs>
-          {refillPercent > 0 ? (
+          {refills.map((refill, index) => (
             <Rect
-              x={`${100 - Math.min(100 - remaining, refillPercent)}%`}
-              width={`${Math.min(100 - remaining, refillPercent)}%`}
+              key={refill.member.account.key}
+              x={`${refill.start}%`}
+              width={`${refill.width}%`}
               height="100%"
-              fill={`url(#${patternId})`}
+              fill={`url(#${patternId}-${index})`}
             />
-          ) : null}
-          <Rect width={`${remaining}%`} height="100%" fill={color} opacity={0.35} />
+          ))}
         </Svg>
       ) : null}
     </View>
@@ -191,11 +134,14 @@ function PoolWindowCard({
   const gt = useGT();
   const m = useMessages();
   const [barWidth, setBarWidth] = useState(0);
-  // Each segment needs room for its account, percent and reset to label itself.
-  const segmentWidth = barWidth / Math.max(pool.columns.length, 1);
-  const inlineLabels = wide && segmentWidth >= 96;
-  const inlineReset = wide && segmentWidth >= 150;
-  const inlineName = wide && segmentWidth >= 220;
+  const meter = poolMeter(pool, now);
+  const colorOf = (account: LimitAccount) =>
+    normalizeProviderAccentColor(account.accentColor) ?? color;
+  // The pace tick sits in a card-colored slot, which reads as a gap cut from the meter.
+  const tickX =
+    meter.paceMark === null || barWidth < 6
+      ? null
+      : Math.min(Math.max((barWidth * meter.paceMark) / 100, 3), barWidth - 3);
   const nextRefill = pool.resets.find((reset) => reset.at > now && reset.restoresPercent > 0);
   const openAccount = (account: LimitAccount) =>
     navigation.navigate("SettingsUsageAccount", {
@@ -234,125 +180,81 @@ function PoolWindowCard({
       ) : null}
     </>
   );
+  // One meter for the pool: each account fills its share of what is left, numbered like its row.
   const bar = (
     <View
-      className="flex-row gap-1"
+      className={wide ? "h-9" : "h-7"}
       onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
     >
-      {pool.columns.map((member, index) => {
-        if (!member.window)
+      <View className="absolute inset-0 overflow-hidden rounded-md bg-subtle">
+        {meter.pieces.map(({ member: { account, window }, index, start, width }) => {
+          if (width <= 0) return null;
+          const timeLeft = paceRemainingPercent(window, now);
           return (
-            <View
-              key={member.account.key}
-              className={wide ? "h-9 min-w-0 flex-1" : "h-7 min-w-0 flex-1"}
-            />
-          );
-        const { account, window } = member;
-        const timeLeft = paceRemainingPercent(window, now);
-        const credits = account.limits.resetCredits?.availableCount ?? 0;
-        const resetsIn = resetLabels(window, now, m)?.compact;
-        return (
-          <Pressable
-            key={account.key}
-            accessibilityRole="button"
-            accessibilityLabel={
-              timeLeft === null
-                ? gt("Segment {index}, {account}, {remaining}% left", {
-                    index: index + 1,
-                    account: accountName(account, m),
-                    remaining: remainingPercent(window),
-                  })
-                : gt(
-                    "Segment {index}, {account}, {remaining}% left, {timeLeft}% of the window left",
-                    {
-                      index: index + 1,
+            <Pressable
+              key={account.key}
+              accessibilityRole="button"
+              accessibilityLabel={
+                timeLeft === null
+                  ? gt("Segment {index}, {account}, {remaining}% left", {
+                      index,
                       account: accountName(account, m),
                       remaining: remainingPercent(window),
-                      timeLeft,
-                    },
-                  )
-            }
-            accessibilityHint={gt("Show account details")}
-            onPress={() => openAccount(account)}
-            className={wide ? "h-9 min-w-0 flex-1 rounded-md" : "h-7 min-w-0 flex-1 rounded-md"}
-          >
-            <PaceGap timeLeft={timeLeft}>
-              <View className="absolute inset-0 rounded-md bg-subtle" />
-              <View className="absolute inset-0 overflow-hidden rounded-md">
-                <AccountSegment
-                  remaining={remainingPercent(window)}
-                  color={normalizeProviderAccentColor(account.accentColor) ?? color}
-                  refillPercent={window.resetsAt ? member.refillPercent : 0}
-                />
-              </View>
-            </PaceGap>
-            {inlineLabels ? (
+                    })
+                  : gt(
+                      "Segment {index}, {account}, {remaining}% left, {timeLeft}% of the window left",
+                      {
+                        index,
+                        account: accountName(account, m),
+                        remaining: remainingPercent(window),
+                        timeLeft,
+                      },
+                    )
+              }
+              accessibilityHint={gt("Show account details")}
+              onPress={() => openAccount(account)}
+              className="absolute top-0 bottom-0 items-center justify-center"
+              style={{ left: `${start}%`, width: `${width}%` }}
+            >
+              {/* Pieces after the first start 2pt in, so neighbouring accounts read apart. */}
               <View
                 pointerEvents="none"
-                className="absolute inset-0 flex-row items-center justify-between gap-2 overflow-hidden rounded-md px-2"
-              >
-                <View className="min-w-0 shrink flex-row items-center gap-1.5">
-                  {account.email ? <AccountChip email={account.email} /> : null}
-                  {account.email && !(account.displayName && inlineName) ? null : (
-                    <Text
-                      numberOfLines={1}
-                      className="min-w-0 shrink text-xs font-t3-medium text-foreground"
-                    >
-                      {accountName(account, m)}
-                    </Text>
-                  )}
-                  <Text className="text-sm font-t3-bold tabular-nums text-foreground">
-                    {remainingPercent(window)}%
-                  </Text>
-                </View>
-                {inlineReset && (resetsIn || credits) ? (
-                  <View className="shrink-0 flex-row items-center gap-1 rounded bg-grouped-card/85 px-1.5 py-0.5">
-                    {resetsIn ? (
-                      <>
-                        <SymbolView
-                          name="arrow.clockwise"
-                          size={11}
-                          tintColorClassName="accent-foreground-muted"
-                        />
-                        <Text className="text-xs tabular-nums text-foreground-muted">
-                          {resetsIn}
-                        </Text>
-                      </>
-                    ) : null}
-                    {credits ? (
-                      <>
-                        <SymbolView name="ticket" size={12} tintColorClassName="accent-icon" />
-                        <Text className="text-xs font-t3-medium tabular-nums text-foreground">
-                          {credits}
-                        </Text>
-                      </>
-                    ) : null}
-                  </View>
-                ) : null}
-              </View>
-            ) : (
-              <View
-                pointerEvents="none"
-                className="absolute inset-0 items-center justify-center overflow-hidden rounded-md"
-              >
+                className="absolute top-0 right-0 bottom-0"
+                style={{
+                  left: start > 0 ? 2 : 0,
+                  backgroundColor: colorOf(account),
+                  opacity: 0.35,
+                }}
+              />
+              {(barWidth * width) / 100 >= 18 ? (
                 <Text
                   numberOfLines={1}
-                  className="max-w-full shrink text-xs font-t3-medium tabular-nums text-foreground"
+                  className="text-xs font-t3-medium tabular-nums text-foreground"
                 >
-                  {index + 1}
+                  {index}
                 </Text>
-              </View>
-            )}
-          </Pressable>
-        );
-      })}
+              ) : null}
+            </Pressable>
+          );
+        })}
+        <MeterHatches refills={meter.refills} colorOf={colorOf} />
+      </View>
+      {tickX !== null ? (
+        <View
+          pointerEvents="none"
+          className="absolute top-0 bottom-0 w-1.5 bg-grouped-card"
+          style={{ left: tickX - 3 }}
+        >
+          <View className="absolute top-0.5 bottom-0.5 left-0.5 w-0.5 rounded-full bg-foreground" />
+        </View>
+      ) : null}
     </View>
   );
   const legend = (
     <View>
       {pool.columns.map(({ account, window }, index) => {
         if (!window) return null;
-        const segmentColor = normalizeProviderAccentColor(account.accentColor) ?? color;
+        const segmentColor = colorOf(account);
         const credits = account.limits.resetCredits?.availableCount ?? 0;
         const reset = resetLabels(window, now, m);
         const resetsIn = reset?.full;
@@ -452,7 +354,7 @@ function PoolWindowCard({
         <View className="w-44 gap-1">{summary}</View>
         <View className="min-w-0 flex-1 gap-1">
           {bar}
-          {inlineLabels ? null : legend}
+          {legend}
         </View>
       </View>
     );

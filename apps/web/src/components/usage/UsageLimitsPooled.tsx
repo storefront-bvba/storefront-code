@@ -18,6 +18,7 @@ import { normalizeProviderAccentColor } from "@t3tools/client-runtime/state/prov
 import { AlertTriangleIcon, ExternalLinkIcon, TicketIcon } from "lucide-react";
 import {
   createContext,
+  type CSSProperties,
   Fragment,
   type ReactNode,
   type RefObject,
@@ -47,6 +48,7 @@ import {
   formatResetsIn,
   resetCreditChoices,
 } from "@t3tools/shared/usageLimitsCopy";
+import { poolMeter, type PoolMeterPiece } from "@t3tools/shared/usageLimitsDisplay";
 
 function accountInitials(email: string): string {
   const [local = "", domain = ""] = email.split("@");
@@ -307,11 +309,10 @@ function PoolSegment({
   readonly account: LimitAccount;
   readonly window: LimitPoolMember["window"];
   readonly reset: LimitPoolWindow["resets"][number] | undefined;
-  readonly refillPercent: number;
+  readonly piece: PoolMeterPiece;
   readonly color: string;
   readonly now: number;
-  readonly index: number;
-  readonly showAccountName: boolean;
+  readonly paceGap: CSSProperties | undefined;
 }) {
   return account.redeem ? (
     <RedeemableSegment account={account} redeemAt={account.redeem} {...props} />
@@ -349,31 +350,28 @@ function RedeemableSegment({
   );
 }
 
+/** The account's part of the pool meter, and its legend row below the meter. */
 function SegmentTriggers({
   account,
   window,
   reset,
   redeem,
-  refillPercent,
+  piece,
   color,
   now,
-  index,
-  showAccountName,
+  paceGap,
 }: SegmentPayload & {
-  readonly refillPercent: number;
+  readonly piece: PoolMeterPiece;
   readonly color: string;
   readonly now: number;
-  readonly index: number;
-  readonly showAccountName: boolean;
+  readonly paceGap: CSSProperties | undefined;
 }) {
   const popover = use(SegmentPopoverContext) ?? undefined;
   const payload: SegmentPayload = { account, window, reset, redeem };
   const remaining = remainingPercent(window);
   const timeLeft = paceRemainingPercent(window, now);
-  const [segmentRef, paceMark] = usePaceMark(timeLeft);
   const m = useMessages();
   const resetsIn = formatResetsIn(window, now, m);
-  const refillIn = formatResetsIn(window, now, m, "refill");
   const credits = account.limits.resetCredits?.availableCount ?? 0;
   const gt = useGT();
   const segmentLabel = [
@@ -395,89 +393,43 @@ function SegmentTriggers({
     .join(", ");
   return (
     <>
-      <PopoverTrigger
-        handle={popover}
-        payload={payload}
-        openOnHover
-        render={
-          <button
-            ref={segmentRef}
-            type="button"
-            style={{ gridColumn: index, gridRow: 1, ...paceMark?.gappedTrack }}
-            aria-label={segmentLabel}
-            className="relative h-5 min-w-0 cursor-pointer rounded-md bg-muted text-start outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[popup-open]:ring-1 data-[popup-open]:ring-inset data-[popup-open]:ring-border @2xl/pool:h-8"
-          />
-        }
-      >
-        <div aria-hidden className="absolute inset-0 overflow-hidden rounded-md">
-          {/* Clipped inside the rounded clip so the bar's own corners keep their antialiasing. */}
-          <div className="absolute inset-0" style={paceMark?.gap}>
-            <div
-              aria-hidden
-              className="absolute inset-y-0 left-0 rounded-md opacity-35"
-              style={{ width: `${remaining}%`, backgroundColor: color }}
-            />
-            {remaining < 100 && reset && refillPercent > 0 ? (
-              <div
-                aria-hidden
-                className="absolute inset-y-0 right-0 opacity-20"
-                style={{
-                  width: `${Math.min(100 - remaining, refillPercent)}%`,
-                  // A bare 45° gradient repeats every 5√2px, so some stripes rasterize thinner; a whole-pixel tile doesn't.
-                  backgroundImage: `repeating-linear-gradient(135deg, transparent 0 1px, ${color} 1px 2px, transparent 2px 50%)`,
-                  backgroundSize: "7px 7px",
-                }}
-              />
-            ) : null}
-          </div>
-        </div>
-        {paceMark ? (
-          <span
-            aria-hidden
-            className="absolute inset-y-0.5 w-0.5 -translate-x-1/2 rounded-full bg-foreground"
-            style={paceMark.tick}
-          />
-        ) : null}
-        <span
-          aria-hidden
-          className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-md text-3xs leading-none font-semibold text-foreground/80 tabular-nums @2xl/pool:hidden"
+      {piece.width > 0 ? (
+        <div
+          style={{ gridRow: 1, gridColumn: "1 / -1", ...paceGap }}
+          className="pointer-events-none relative h-5 overflow-hidden rounded-md @2xl/pool:h-8"
         >
-          {index}
-        </span>
-        <div className="relative hidden h-full min-w-0 items-center gap-1.5 overflow-hidden rounded-md px-2 text-xs @2xl/pool:flex">
-          {showAccountName ? (
-            <AccountName
-              account={account}
-              className="min-w-0 truncate font-medium text-foreground"
+          <PopoverTrigger
+            handle={popover}
+            payload={payload}
+            openOnHover
+            render={
+              <button
+                type="button"
+                aria-label={segmentLabel}
+                style={{ left: `${piece.start}%`, width: `${piece.width}%` }}
+                className="@container/piece pointer-events-auto absolute inset-y-0 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[popup-open]:ring-1 data-[popup-open]:ring-inset data-[popup-open]:ring-border"
+              />
+            }
+          >
+            {/* Pieces after the first start 2px in, so neighbouring accounts read apart. */}
+            <span
+              aria-hidden
+              className={cn(
+                "absolute inset-y-0 end-0 opacity-35",
+                piece.start > 0 ? "start-0.5" : "start-0",
+              )}
+              style={{ backgroundColor: color }}
             />
-          ) : null}
-          {/* A single-account bar repeats the headline percentage. */}
-          {showAccountName ? (
-            <span className="shrink-0 font-semibold text-foreground tabular-nums">
-              {remaining}%
+            <span
+              aria-hidden
+              className="relative hidden h-full items-center justify-center text-3xs leading-none font-semibold text-foreground/80 tabular-nums @min-[1.25rem]/piece:flex @2xl/pool:text-xs"
+            >
+              {piece.index}
             </span>
-          ) : null}
-          {resetsIn || credits ? (
-            <span className="ms-auto flex min-w-0 items-center gap-1.5 overflow-hidden rounded-sm bg-background/85 px-1.5 py-0.5 text-2xs whitespace-nowrap text-foreground tabular-nums">
-              {refillIn ?? ""}
-              {credits ? (
-                <>
-                  {resetsIn ? (
-                    <span aria-hidden className="text-muted-foreground">
-                      ·
-                    </span>
-                  ) : null}
-                  <span aria-hidden className="inline-flex items-center gap-0.5 font-semibold">
-                    <TicketIcon className="size-3" aria-hidden />
-                    {credits}
-                  </span>
-                </>
-              ) : null}
-            </span>
-          ) : null}
+          </PopoverTrigger>
         </div>
-      </PopoverTrigger>
-      <LegendRow payload={payload} color={color} now={now} index={index} />
+      ) : null}
+      <LegendRow payload={payload} color={color} now={now} index={piece.index} />
     </>
   );
 }
@@ -504,9 +456,8 @@ function LegendRow({
     <PopoverTrigger
       handle={popover}
       payload={payload}
-      style={{ gridColumn: "1 / -1", gridRow: index + 1 }}
       render={<Button variant="ghost" size="compact" />}
-      className="min-w-0 @2xl/pool:hidden"
+      className="min-w-0"
     >
       <span className="relative inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-3xs leading-none font-semibold text-foreground/80 tabular-nums">
         <span
@@ -544,6 +495,10 @@ function LegendRow({
   );
 }
 
+/**
+ * One meter for the whole pool, filled by each account's share of what is left. Every element of
+ * the meter sits in the grid's first row; the legend rows below it open each account.
+ */
 function PoolBar({
   pool,
   color,
@@ -554,40 +509,76 @@ function PoolBar({
   readonly now: number;
 }) {
   const restores = new Map(pool.resets.map((reset) => [reset.member.account.key, reset]));
+  const meter = poolMeter(pool, now);
+  const pieces = new Map(meter.pieces.map((piece) => [piece.member.account.key, piece]));
+  const [trackRef, paceMark] = usePaceMark(meter.paceMark);
+  const accountColor = (account: LimitAccount) =>
+    normalizeProviderAccentColor(account.accentColor) ?? color;
   const gt = useGT();
   return (
     <div className="@container/pool min-w-0">
-      <div
-        className="grid gap-x-1 gap-y-1"
-        style={{ gridTemplateColumns: `repeat(${pool.columns.length}, minmax(0, 1fr))` }}
-      >
-        {pool.columns.map((member, position) =>
-          member.window ? (
+      <div className="grid gap-x-3 gap-y-1 @2xl/pool:grid-cols-2">
+        <div
+          ref={trackRef}
+          role="meter"
+          aria-label={pool.label}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={pool.remainingPercent}
+          aria-valuetext={gt("{remaining}% left", { remaining: pool.remainingPercent })}
+          style={{ gridRow: 1, gridColumn: "1 / -1", ...paceMark?.gap }}
+          className="h-5 rounded-md bg-muted @2xl/pool:h-8"
+        />
+        {pool.columns.map((member) => {
+          const piece = pieces.get(member.account.key);
+          return member.window && piece ? (
             <PoolSegment
               key={member.account.key}
               account={member.account}
               window={member.window}
               reset={restores.get(member.account.key)}
-              refillPercent={member.refillPercent}
-              color={normalizeProviderAccentColor(member.account.accentColor) ?? color}
+              piece={piece}
+              color={accountColor(member.account)}
               now={now}
-              index={position + 1}
-              showAccountName={pool.columns.length > 1}
+              paceGap={paceMark?.gap}
             />
           ) : pool.kind === "monthly" && member.account.limits.zeroSpendCap ? (
             <div
               key={member.account.key}
-              style={{ gridColumn: position + 1, gridRow: 1 }}
-              className="flex h-5 min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-md border border-dashed border-border text-3xs whitespace-nowrap text-muted-foreground @2xl/pool:h-8 @2xl/pool:justify-start @2xl/pool:px-2 @2xl/pool:text-xs"
+              className="flex h-7 min-w-0 items-center gap-1.5 px-2 text-xs text-muted-foreground"
             >
-              <AccountName
-                account={member.account}
-                className="hidden min-w-0 truncate @2xl/pool:inline-flex"
-              />
+              <AccountName account={member.account} className="min-w-0 truncate" />
               {gt("$0 cap")}
             </div>
-          ) : null,
-        )}
+          ) : null;
+        })}
+        <div
+          aria-hidden
+          style={{ gridRow: 1, gridColumn: "1 / -1" }}
+          className="pointer-events-none relative overflow-hidden rounded-md"
+        >
+          <div className="absolute inset-0" style={paceMark?.gap}>
+            {meter.refills.map((refill) => (
+              <div
+                key={refill.member.account.key}
+                className="absolute inset-y-0 opacity-20"
+                style={{
+                  left: `${refill.start}%`,
+                  width: `${refill.width}%`,
+                  // A bare 45° gradient repeats every 5√2px, so some stripes rasterize thinner; a whole-pixel tile doesn't.
+                  backgroundImage: `repeating-linear-gradient(135deg, transparent 0 1px, ${accountColor(refill.member.account)} 1px 2px, transparent 2px 50%)`,
+                  backgroundSize: "7px 7px",
+                }}
+              />
+            ))}
+          </div>
+          {paceMark ? (
+            <span
+              className="absolute inset-y-0.5 w-0.5 -translate-x-1/2 rounded-full bg-foreground"
+              style={paceMark.tick}
+            />
+          ) : null}
+        </div>
       </div>
     </div>
   );

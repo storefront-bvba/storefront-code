@@ -639,6 +639,10 @@
       "types": "./src/usageLimitsCopy.ts",
       "import": "./src/usageLimitsCopy.ts"
     },
+    "./usageLimitsDisplay": {
+      "types": "./src/usageLimitsDisplay.ts",
+      "import": "./src/usageLimitsDisplay.ts"
+    },
     "./usageFormatCopy": {
       "types": "./src/usageFormatCopy.ts",
       "import": "./src/usageFormatCopy.ts"
