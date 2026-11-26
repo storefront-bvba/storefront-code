@@ -428,7 +428,9 @@ leaves the host.
     "T3 Account" and "the T3 team": those name T3's services, on screens this build hides. Two
     native strings (photo permission) are edited in Swift. Other locales fall back to English for
     the renamed strings. `fork/scripts/ios-testflight.sh` empties Metro's cache first and prints the
-    home-screen name and the count of "T3 Code" left in the bundle.
+    home-screen name and the count of "T3 Code" left in the bundle: 51 in build 202611261732, all
+    from the catalogs of the other languages (English uses the renamed source strings; `en.json` is
+    not loaded).
   - Not renamed: the `t3code://` link scheme, internal names (`T3Mark`, `font-t3-*`) and the web
     app's strings (those need a server round).
 - Apple side (2026-11-26):

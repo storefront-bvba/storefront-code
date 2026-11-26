@@ -68,7 +68,8 @@ done
 [ -d "$OUT/$SCHEME.xcarchive" ] || { echo "archive failed, see $OUT/archive.log" >&2; exit 1; }
 
 # Our names in the built app (fork/GOAL.md, "Our own identity"): the home-screen name, and how
-# often upstream's product name is left in the JavaScript bundle (expected: 0).
+# often upstream's product name is left in the JavaScript bundle. About 50 is expected: the other
+# languages' catalogs keep it, but renamed strings no longer match them and show in English.
 APP=$(ls -d "$OUT/$SCHEME.xcarchive/Products/Applications/"*.app | head -1)
 echo "== names: home screen \"$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP/Info.plist")\"," \
 	"\"T3 Code\" in the bundle: $(LC_ALL=C grep -a -o 'T3 Code' "$APP/main.jsbundle" | wc -l | tr -d ' ')"
