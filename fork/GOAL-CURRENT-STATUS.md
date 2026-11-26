@@ -108,7 +108,9 @@ What the Omarchy host needs outside the repository; how to install it is in
   `0.1.12-storefront.68` (checked with that runtime's `t3 policy check`). The running server loads
   it at its next restart, the next server round; `t3 policy show` says so until then.
   `fork/scripts/install-runtime.sh` checks it with every new runtime before switching.
-- **Later, once our own push works (F5):** add `"connect": false` to `limits` (unlinks T3 Connect).
+- **`"connect": false`** in `limits` since 2026-11-26 (installed after our own push worked on the
+  iPhone; applied by a restart through `fork/scripts/restart-when-idle.sh`): at startup the server
+  unlinks T3 Connect, starts no tunnel and ends sessions of devices paired through Connect.
 - **`~/.t3/service.env`** must hold `T3CODE_TELEMETRY_ENABLED=false` and `T3CODE_LAN=false` (both
   there) and gets `T3CODE_HOSTED_APP_URL=https://omarchy.taila38105.ts.net` (new: thread links for
   MCP clients such as the ERP point at our own web app instead of `app.t3.codes`).
@@ -385,11 +387,11 @@ leaves the host.
     shows Notifications too, and the app asks for notification permission itself once the first
     paired host can push (upstream asks after a Connect sign-in), then registers with the hosts.
   - Checked on the iPhone on 2026-11-26 with build 202611261654: alerts and Live Activities work.
-  - Still running: T3 Connect's tunnel. The host still starts `cloudflared` to T3's managed endpoint
-    (`t3coderelay-managedendpoint-prod-…`, `logs/relay-client.ndjson`) from the link stored in
-    `secrets/cloud-*`, so T3's relay can still reach this host. `t3 connect unlink` does not exist in
-    our build (no T3 Connect configuration). Next server round: `"connect": false` in the managed
-    policy; at startup the server then unlinks itself and starts no tunnel (`CloudLink.ts`:1690).
+  - T3 Connect's tunnel still ran after the switch: the host started `cloudflared` to T3's managed
+    endpoint (`t3coderelay-managedendpoint-prod-…`, `logs/relay-client.ndjson`) from the link stored
+    in `secrets/cloud-*`, and `t3 connect unlink` does not exist in our build. Turned off on
+    2026-11-26 with `"connect": false` in the managed policy and a restart; at startup the server
+    unlinks itself and starts no tunnel (`CloudLink.ts`:1690). The secrets were backed up first.
   - Android gets nothing (no FCM). Two push hosts: alerts from both, the card only from the first.
 
 ### F6: own Apple account

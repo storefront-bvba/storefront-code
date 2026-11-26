@@ -2,5 +2,5 @@
   "schemaVersion": 1,
   "organization": "Storefront",
   "settings": { "enableProviderUpdateChecks": { "value": false, "locked": true } },
-  "limits": { "telemetry": false, "updates": { "mode": "off" } }
+  "limits": { "telemetry": false, "updates": { "mode": "off" }, "connect": false }
 }

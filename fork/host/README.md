@@ -15,12 +15,13 @@ sudo install -d -m 755 /etc/t3code
 sudo install -m 644 -o root -g root fork/host/policy.json /etc/t3code/policy.json
 ```
 
-The server reads it only when it starts, so it applies at the next restart (the next
-`fork/scripts/install-runtime.sh`, which checks it with the new runtime first). Check with
-`t3 policy show`.
+The server reads it only when it starts, so it applies at the next restart: the next
+`fork/scripts/install-runtime.sh` (which checks it with the new runtime first), or
+`fork/scripts/restart-when-idle.sh` for a policy change alone. Check with `t3 policy show`.
 
-- **Once our own push works (F5):** add `"connect": false` to `limits`. It turns T3 Connect off and
-  unlinks the host; push, Live Activities and guest links through T3's relay stop with it.
+- **`"connect": false`** (since 2026-11-26, once our own push worked): T3 Connect off. At startup
+  the server unlinks the host and starts no tunnel; push, Live Activities and guest links through
+  T3's relay stop with it, and so does the official T3 app's access through Connect.
 - **Leave out `clients`:** without `remote` the server refuses remote devices and turns off the
   Tailscale Serve route to itself.
 - **Leave out `webhookTasks`:** webhook triggers over Tailscale serve the ERP wish (N3).
