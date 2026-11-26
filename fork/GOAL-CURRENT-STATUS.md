@@ -172,8 +172,17 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
     App Group `group.<bundle ID>`; keychain group follows the bundle ID;
   - no associated domains, no Sign in with Apple, no Expo `owner`, project ID or updates, no
     default trace URL, no `app.t3.codes` Android intent filter.
+- Apple side (2026-11-26):
+  - Team ID `2Z43A4WSC3` set in `storefront-identity.ts`.
+  - App Store Connect API key (Admin) for builds and `fork/scripts/asc.mjs`. Key ID and issuer ID
+    live outside the repo (on the Omarchy PC in `~/.local/share/storefront-code/asc.env`), the key
+    in `~/.appstoreconnect/private_keys/` (mode 600). Never commit either.
+  - Registered with `node fork/scripts/asc.mjs register`: `be.storefront.code` and
+    `be.storefront.code.dev`, each with `.widgets` and `.sharing`; Push Notifications on both apps,
+    App Groups on all six. The App Group containers themselves are created by Xcode's automatic
+    signing at the first build (the API has no endpoint for them).
+  - App record in App Store Connect: to create by hand (the API cannot create apps).
 - Still open:
-  - `STOREFRONT_APPLE_TEAM_ID` is empty until the team ID is known.
   - URL scheme stays `t3code` (and `t3code-dev`, `t3code-preview`): changing it means editing
     `src/App.tsx`:143-145, both widget files and `package.json` scripts. Widget and Live Activity
     taps go to the app that owns them, but a `t3code://` link opened elsewhere may open the
