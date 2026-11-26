@@ -14,9 +14,11 @@ cd "$(dirname "$0")/../.."
 KEYCHAIN="$HOME/Library/Keychains/storefront-build.keychain-db"
 PASSWORD_FILE="$HOME/.config/storefront-code/build-keychain-password"
 export PATH="/opt/homebrew/bin:$PATH"
+# macOS's own LibreSSL: `security import` cannot read PKCS#12 files from OpenSSL 3's defaults.
+OPENSSL=/usr/bin/openssl
 
 if [ ! -s "$PASSWORD_FILE" ]; then
-	(umask 077 && mkdir -p "$(dirname "$PASSWORD_FILE")" && openssl rand -base64 30 >"$PASSWORD_FILE")
+	(umask 077 && mkdir -p "$(dirname "$PASSWORD_FILE")" && "$OPENSSL" rand -base64 30 >"$PASSWORD_FILE")
 fi
 PASSWORD=$(cat "$PASSWORD_FILE")
 
@@ -49,15 +51,21 @@ for type in DEVELOPMENT DISTRIBUTION; do
 	: "${ASC_KEY_ID:?set ASC_KEY_ID to create certificates}" "${ASC_ISSUER_ID:?set ASC_ISSUER_ID}"
 	work=$(mktemp -d)
 	trap 'rm -rf "$work"' EXIT
-	openssl genrsa -out "$work/key.pem" 2048 2>/dev/null
-	openssl req -new -key "$work/key.pem" -out "$work/csr.pem" -subj "/CN=Storefront Code build/O=Storefront/C=BE"
-	mise exec node@26.13.1 -- node fork/scripts/asc.mjs certificate "$type" "$work/csr.pem" "$work/cert.cer"
-	openssl x509 -inform DER -in "$work/cert.cer" -out "$work/cert.pem"
-	p12_password=$(openssl rand -hex 16)
-	openssl pkcs12 -export -inkey "$work/key.pem" -in "$work/cert.pem" -out "$work/identity.p12" \
-		-passout "pass:$p12_password"
-	security import "$work/identity.p12" -k "$KEYCHAIN" -P "$p12_password" \
-		-T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild
+	"$OPENSSL" genrsa -out "$work/key.pem" 2048 2>/dev/null
+	"$OPENSSL" req -new -key "$work/key.pem" -out "$work/csr.pem" -subj "/CN=Storefront Code build/O=Storefront/C=BE"
+	created=$(mise exec node@26.13.1 -- node fork/scripts/asc.mjs certificate "$type" "$work/csr.pem" "$work/cert.cer")
+	echo "$created"
+	certificate_id=$(echo "$created" | sed -n 's/^created [A-Z]* certificate \([A-Z0-9]*\) .*/\1/p')
+	p12_password=$("$OPENSSL" rand -hex 16)
+	if ! { "$OPENSSL" x509 -inform DER -in "$work/cert.cer" -out "$work/cert.pem" &&
+		"$OPENSSL" pkcs12 -export -inkey "$work/key.pem" -in "$work/cert.pem" -out "$work/identity.p12" \
+			-passout "pass:$p12_password" &&
+		security import "$work/identity.p12" -k "$KEYCHAIN" -P "$p12_password" \
+			-T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild; }; then
+		# Without its private key the certificate is useless: revoke it instead of leaving it behind.
+		[ -n "$certificate_id" ] && mise exec node@26.13.1 -- node fork/scripts/asc.mjs revoke "$certificate_id"
+		exit 1
+	fi
 	rm -rf "$work"
 	trap - EXIT
 	echo "imported $label"
