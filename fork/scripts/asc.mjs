@@ -9,12 +9,15 @@
 //   node fork/scripts/asc.mjs device "<name>" <udid>   register a device (idempotent)
 //     Development signing needs at least one; read the UDID on the Mac with
 //     `xcrun devicectl list devices` while the device is connected.
+//   node fork/scripts/asc.mjs certificates                          list signing certificates
+//   node fork/scripts/asc.mjs certificate DEVELOPMENT|DISTRIBUTION <csr.pem> <out.cer>
+//   node fork/scripts/asc.mjs revoke <certificate id>
 //
 // Reads ASC_KEY_ID, ASC_ISSUER_ID and optionally ASC_KEY_PATH (default
 // ~/.appstoreconnect/private_keys/AuthKey_<ASC_KEY_ID>.p8) from the environment.
 // The key never belongs in this repository.
 import { createPrivateKey, sign } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -196,7 +199,34 @@ if (command === "ids") {
     });
     console.log(`registered "${name}"`);
   }
+} else if (command === "certificates") {
+  const result = await api("GET", "/v1/certificates?limit=200");
+  for (const cert of result.data ?? []) {
+    const { certificateType, name, serialNumber, expirationDate } = cert.attributes;
+    console.log(`${cert.id}  ${certificateType}  "${name}"  serial ${serialNumber}  until ${expirationDate?.slice(0, 10)}`);
+  }
+} else if (command === "certificate") {
+  // Create a signing certificate from a CSR (PEM) and write the certificate (DER) to a file.
+  const [type, csrPath, outPath] = process.argv.slice(3);
+  if (!["DEVELOPMENT", "DISTRIBUTION"].includes(type) || !csrPath || !outPath) {
+    throw new Error("Usage: node fork/scripts/asc.mjs certificate DEVELOPMENT|DISTRIBUTION <csr.pem> <out.cer>");
+  }
+  const csrContent = readFileSync(csrPath, "utf8")
+    .replace(/-----(BEGIN|END) CERTIFICATE REQUEST-----/g, "")
+    .replace(/\s+/g, "");
+  const created = await api("POST", "/v1/certificates", {
+    data: { type: "certificates", attributes: { certificateType: type, csrContent } },
+  });
+  writeFileSync(outPath, Buffer.from(created.data.attributes.certificateContent, "base64"));
+  console.log(`created ${type} certificate ${created.data.id} (serial ${created.data.attributes.serialNumber})`);
+} else if (command === "revoke") {
+  const [id] = process.argv.slice(3);
+  if (!id) throw new Error("Usage: node fork/scripts/asc.mjs revoke <certificate id>");
+  await api("DELETE", `/v1/certificates/${id}`);
+  console.log(`revoked ${id}`);
 } else {
-  console.error("Usage: node fork/scripts/asc.mjs ids|register|testers|apps|devices|device");
+  console.error(
+    "Usage: node fork/scripts/asc.mjs ids|register|testers|apps|devices|device|certificates|certificate|revoke",
+  );
   process.exit(2);
 }

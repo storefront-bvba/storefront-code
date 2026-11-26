@@ -35,6 +35,9 @@ run node fork/scripts/check-telemetry.mjs
 
 if [ -n "${KEYCHAIN_PASSWORD_FILE:-}" ]; then
 	security unlock-keychain -p "$(cat "$KEYCHAIN_PASSWORD_FILE")" "$HOME/Library/Keychains/login.keychain-db"
+else
+	# Our own keychain with our signing identities; no user password needed.
+	fork/scripts/ios-build-keychain.sh
 fi
 
 (cd apps/mobile && run pnpm exec expo prebuild --clean --platform ios)
@@ -47,12 +50,18 @@ AUTH=(-allowProvisioningUpdates
 	-authenticationKeyIssuerID "$ASC_ISSUER_ID")
 mkdir -p "$OUT"
 
-echo "== archive $SCHEME"
-# xcodebuild runs the Metro bundling build phase; it needs node from mise on PATH.
-run xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release \
-	-destination generic/platform=iOS -archivePath "$OUT/$SCHEME.xcarchive" "${AUTH[@]}" \
-	DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-	archive 2>&1 | tee "$OUT/archive.log" | grep -E '^(error|warning: .*sign|\*\* )|BUILD|ARCHIVE' || true
+# Xcode requests a profile per target in parallel, and the API sometimes rejects some of those
+# requests ("Authentication failed"). Profiles that did arrive are cached, so a retry gets further.
+for attempt in 1 2 3; do
+	echo "== archive $SCHEME (attempt $attempt)"
+	# xcodebuild runs the Metro bundling build phase; it needs node from mise on PATH.
+	run xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release \
+		-destination generic/platform=iOS -archivePath "$OUT/$SCHEME.xcarchive" "${AUTH[@]}" \
+		DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+		archive 2>&1 | tee "$OUT/archive.log" | grep -E '^(error|warning: .*sign|\*\* )|BUILD|ARCHIVE' || true
+	[ -d "$OUT/$SCHEME.xcarchive" ] && break
+	grep -q 'Authentication failed' "$OUT/archive.log" || break
+done
 [ -d "$OUT/$SCHEME.xcarchive" ] || { echo "archive failed, see $OUT/archive.log" >&2; exit 1; }
 
 DESTINATION=export
