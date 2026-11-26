@@ -64,7 +64,7 @@ upstream would take it.
 | B3 | Bottom menu bar stays visible in a thread | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
 | F1 | No telemetry or tracking | Fork patches, guard and build checks done; host runs our build with opt-outs; managed policy ready, not installed | Config + small patch + guard | S | No (on by default upstream) |
 | F2 | 2-step voice input (Deepgram) | Not started | Own endpoint option (Idea #32516, fork meanwhile) + own Deepgram service; live words in fork | M–L | No for now (closed #32530) |
-| F3 | Subagent model and effort visible | Mostly exists; gap for Claude Code's own subagents | Try as bug-fix PR | M | Doubtful to good |
+| F3 | Subagent model and effort visible | Fixed on branch `storefront-f3-subagents` (2026-11-26): effort shows while a Claude Code subagent runs; not yet merged into `storefront` or live | Fork patch now, upstream bug-fix PR later | S | Good (follows #35333 and #43023) |
 | F4 | Usage indicator in a thread | Not started; data already in the app | Idea #40926, fork meanwhile | S–M | Doubtful (feature) |
 | F5 | Only Tailscale or LAN, no T3 Connect | Paired over Tailscale Serve; host-sent push built on `storefront` (2026-11-26), not deployed yet (next server build, `service.env`, TestFlight) | Fork: host sends push itself | L | No (new connection method) |
 | F6 | Own Apple account, TestFlight | Done: first build uploaded to TestFlight on 2026-11-26 | Fork: `storefront-identity.ts`, `fork/scripts/` | S | No |
@@ -180,12 +180,44 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
 
 ### F3: subagent model and effort
 
-- Mobile already shows "provider · model · effort" for subagents
-  (`apps/mobile/src/features/threads/SubagentRow.tsx`:151-186); web in a tooltip.
-- Gap: Claude Code's own (Task) subagents. The model is known only when the Task call names one,
-  else after the first streamed reply; the effort only after the subagent finishes
-  (`apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts`:8770-8787, 12220-12245).
-- That adapter is the hottest file we would touch (175 commits in 30 days): try as an upstream fix.
+- Clients already show "provider · model · effort" from the subagent's `modelSelection`: mobile in
+  `apps/mobile/src/features/threads/SubagentRow.tsx`, web in `SubagentTooltipContent.tsx`. No
+  client change is needed. T3-delegated subagents have both values from the start.
+- What Claude Code exposes (CLI 2.1.329, measured with stream-json runs on 2026-11-26):
+  - The Agent tool input has `model` and `effort`, but only when the call sets them.
+  - `task_started` and `background_tasks_changed` carry neither value. A background launch result
+    carries `resolvedModel`, and streamed subagent frames carry `message.model`. A foreground
+    subagent that only replies with text streams no frames at all.
+  - The effort is recorded only in the subagent's transcript
+    (`<claude config>/projects/<project>/<session>/subagents/agent-<task>.jsonl`). It is the
+    `effort` on each assistant line from the first reply on (0.5 to 3 s after start in our runs),
+    and also `params.output_config.effort` on an `api-request` line about 0.7 s after start.
+  - Where it comes from: the parent's effort when the model is the same (parent `low` gave `low`),
+    the agent's frontmatter `effort` (`medium`), or the model's own default when the model
+    differs (Haiku gave `medium`). The adapter cannot know this at start without the transcript.
+- Model: visible from the start. It is the model the call names, the parent's model for `inherit`,
+  or else the parent's model until the first streamed frame or the settle corrects it. Built-in
+  agents inherit the model, so this is right unless a custom agent or a default subagent model
+  picks another one.
+- Fix (`fork(server):` commit): from `task_started` on, the adapter reads the subagent's transcript
+  every second until the first reply, then sets the effort while the subagent still runs. Before
+  this, the effort was read only at the settle (upstream #35333). Edits in
+  `apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts`: one new block, one line in the
+  effort derivation, one call in the `task_started` handling. The split-out
+  `findSubagentTranscriptDir` is copied verbatim from upstream `main` (#43023), so the next rebase
+  merges cleanly there. The test is in `ClaudeAdapterV2.test.ts` ("reports a running subagent's
+  effort once its transcript records the first reply"): it fails on the base and passes with
+  the fix.
+- Not used: the earlier `api-request` line. It would show the effort about 2 s sooner, but it is
+  an internal request log, and the shared transcript parser drops it. Worth a follow-up if the
+  wait for the first reply turns out to matter.
+- Upstream PR (not opened yet), as a bug fix: "fix(server): running Claude subagents show their
+  reasoning effort". The commit cherry-picks onto `upstream/main` `fc1f1bafde` without conflicts.
+  There the new test fails without the fix and passes with it, and all 511 adapter tests and the
+  server typecheck pass. The PR still needs before/after
+  captures of the web hover card and the mobile row while a Claude Code subagent runs: no effort
+  before, effort after. The adapter is upstream's hottest file (169 commits in 30 days), so cut
+  the branch fresh from `upstream/main` right before opening it.
 
 ### F4: usage indicator
 
