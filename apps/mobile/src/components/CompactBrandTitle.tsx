@@ -34,7 +34,9 @@ export function CompactBrandTitle(
   // Measured only while the badge shows, so hiding it does not make it look like it fits.
   const [fullWidth, setFullWidth] = useState<number | null>(null);
   const showStage =
-    !props.fit || availableWidth === null || fullWidth === null || fullWidth <= availableWidth;
+    // Storefront Code (fork): our TestFlight builds are the release; no "Beta" badge.
+    stageLabel !== "Beta" &&
+    (!props.fit || availableWidth === null || fullWidth === null || fullWidth <= availableWidth);
 
   const title = (
     <View
