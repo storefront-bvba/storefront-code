@@ -54,6 +54,8 @@ import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.t
 import { isSnoozed } from "../orchestration-v2/ThreadSettlementService.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import { forkParked } from "../serverActivation.ts";
+import { AgentActivitySink, sinkGateSecret } from "../storefront/push/AgentActivitySink.ts";
+import * as HostPush from "../storefront/push/HostPush.ts";
 
 export class AgentAwarenessRelay extends Context.Service<
   AgentAwarenessRelay,
@@ -439,8 +441,9 @@ export const make = Effect.gen(function* () {
   // its first alert time through parent renames, relinks and the parent's own requests.
   const childAlertByThread = new Map<ThreadId, SubagentAlert>();
   const subagentRequests = new Map<ThreadId, SubagentRequest>();
+  const sink = yield* AgentActivitySink;
 
-  const readSecretString = (name: string) =>
+  const readStoredSecretString = (name: string) =>
     secrets
       .get(name)
       .pipe(
@@ -448,6 +451,9 @@ export const make = Effect.gen(function* () {
           Option.isSome(bytes) ? new TextDecoder().decode(bytes.value) : null,
         ),
       );
+  // Storefront Code: host-sent push passes the link gates without reading T3 Connect's secrets.
+  const readSecretString = (name: string) =>
+    sink ? Effect.succeed(sinkGateSecret(name)) : readStoredSecretString(name);
 
   const readRelayConfig = Effect.gen(function* () {
     const [url, issuer, environmentCredential] = yield* Effect.all([
@@ -537,6 +543,7 @@ export const make = Effect.gen(function* () {
       readonly state: RelayAgentActivityState | null;
       readonly reason: string;
     }) {
+      if (sink) return yield* sink.publish({ environmentId, threadId, state: input.state });
       if (cachedRelayClient === undefined) {
         cachedRelayClient = yield* makeRelayClient(relayConfig);
       }
@@ -1004,4 +1011,4 @@ export const make = Effect.gen(function* () {
   });
 });
 
-export const layer = Layer.effect(AgentAwarenessRelay, make);
+export const layer = Layer.effect(AgentAwarenessRelay, make).pipe(Layer.provide(HostPush.layer));
