@@ -34,6 +34,7 @@ import { environmentSession, sessionHasScope } from "../../state/session";
 import { connectionAtomRuntime } from "../../connection/runtime";
 import { uuidv4 } from "../../lib/uuid";
 import { createEnvironmentTranscriber } from "./environmentTranscriber";
+import { liveEnvironment } from "../../storefront/voice/liveVoice";
 import { readVoiceGrant, writeVoiceGrant, type VoiceGrant } from "./voiceGrantStorage";
 
 const storedGrant = Atom.make(Effect.promise(readVoiceGrant)).pipe(Atom.keepAlive);
@@ -145,14 +146,16 @@ function environmentTranscriber(
 ) {
   const provider = cloud?.provider;
   const model = cloud?.provider === "openrouter" ? cloud.model : undefined;
-  return createEnvironmentTranscriber({
+  const live = cloud ? null : liveEnvironment(prepared, canSend, runSpeech);
+  const transcriber = createEnvironmentTranscriber({
     canSend,
     prepare: async (signal) => {
       if (provider) {
         await runSpeech(requireCloudSpeechKey(prepared, provider), signal, canSend);
         return "auto";
       }
-      const status = await runSpeech(getEnvironmentSpeechStatus(prepared), signal, canSend);
+      const status = await (live?.status(signal) ??
+        runSpeech(getEnvironmentSpeechStatus(prepared), signal, canSend));
       if (!status.supported)
         throw new VoiceTranscriptionError({ code: "unavailable", message: status.reason });
       if (status.state === "missing-model")
@@ -205,6 +208,7 @@ function environmentTranscriber(
         )
       ).text,
   });
+  return live ? live.wrap(transcriber) : transcriber;
 }
 
 const speechAtom = <A, E>(

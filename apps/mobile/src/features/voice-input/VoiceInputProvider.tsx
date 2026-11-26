@@ -19,6 +19,7 @@ import { getLocalVoiceTranscriber } from "../../native/voiceTranscription";
 import { createVoiceRecorder } from "../../native/voiceRecorder";
 import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
 import { getNativeShowcaseScene } from "../showcase/nativeShowcaseScene";
+import { createLiveVoiceRecorder } from "../../storefront/voice/liveVoiceRecorder";
 import {
   voiceInputBlocksSubmission,
   type VoiceTranscriber,
@@ -95,7 +96,7 @@ export const voiceInputAtom = Atom.make((get) => {
     create: (destination) =>
       destination === "local"
         ? createVoiceRecorder(VOICE_RECORDING_OPTIONS)
-        : new AudioModule.AudioRecorder(VOICE_RECORDING_OPTIONS),
+        : (createLiveVoiceRecorder() ?? new AudioModule.AudioRecorder(VOICE_RECORDING_OPTIONS)),
     onStatus: (status: RecordingStatus) => {
       session.controller.handleRecorderStatus({
         isFinished: status.isFinished,
