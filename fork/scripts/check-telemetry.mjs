@@ -51,6 +51,11 @@ const INVARIANTS = [
     why: "server product analytics must default off with no built-in destination",
   },
   {
+    file: "packages/shared/src/cliRelease.ts",
+    mustContain: ['const CLI_RELEASE_REPOSITORY = "storefront-bvba/storefront-code";'],
+    why: "server and CLI updates must come from our own releases, never upstream's",
+  },
+  {
     file: "apps/mobile/app.config.ts",
     mustContain: ["export default withStorefrontIdentity(config);"],
     why: "the mobile config must pass through our identity (own IDs, no Expo updates)",
