@@ -8,6 +8,8 @@
 # build runs in ubuntu:24.04 whatever the host is. It builds the committed HEAD of this clone
 # (uncommitted changes are not included), skips upstream's relay tracing configuration (that is
 # Axiom telemetry), and writes build/linux-cli/t3-<version>-linux-x64.tar.gz, smoke-tested.
+# The telemetry guard runs on the source first and on the unpacked archive last (fork/GOAL.md,
+# sync checklist steps 3 and 4); an archive that fails is not copied out.
 # Install it with fork/scripts/install-runtime.sh.
 set -euo pipefail
 
@@ -50,6 +52,8 @@ curl -fsSL https://sh.rustup.rs | sh -s -- -y -q --profile minimal --default-too
 git config --global --add safe.directory "*"
 git clone -q --no-hardlinks /repo /build
 cd /build
+echo "== telemetry guard"
+node fork/scripts/check-telemetry.mjs
 echo "== install"
 pnpm install --frozen-lockfile >/tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
 echo "== versions"
@@ -75,6 +79,10 @@ echo "== archive"
 node scripts/build-cli-archive.ts --platform linux --arch x64 --version "$VERSION" \
 	--resource-monitor-dir /tmp/resource-monitor --output-dir /tmp/release-cli
 node scripts/smoke-cli-archive.ts --archive /tmp/release-cli/* --expect-version "$VERSION"
+echo "== artifact check"
+mkdir /tmp/artifact
+tar -xzf /tmp/release-cli/*.tar.gz -C /tmp/artifact
+node fork/scripts/check-telemetry.mjs --artifact /tmp/artifact
 cp /tmp/release-cli/* /out/
 chown "$HOST_UID:$HOST_GID" /out/*
 '
