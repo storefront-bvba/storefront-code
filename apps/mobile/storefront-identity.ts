@@ -60,6 +60,9 @@ export function withStorefrontIdentity(upstream: ExpoConfig): ExpoConfig {
     else delete config.ios.appleTeamId;
     // Universal links and passkeys for T3's domains (Clerk, hosted app) do not apply to us.
     delete config.ios.associatedDomains;
+    // Every TestFlight upload needs a higher build number; fork/scripts/ios-testflight.sh sets it.
+    const buildNumber = process.env.STOREFRONT_BUILD_NUMBER?.trim();
+    if (buildNumber) config.ios.buildNumber = buildNumber;
   }
 
   if (config.android?.intentFilters) {
