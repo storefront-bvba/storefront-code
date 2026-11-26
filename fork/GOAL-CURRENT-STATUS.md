@@ -35,6 +35,12 @@ patch, a PR, a sync, a decision, a finding.
   13. `fork:` typecheck and test gate `fork/scripts/check-build.sh` and a boot check of the built web
       client in the Linux build.
   14. `fork:` host configuration templates in `fork/host/` (managed policy, service environment).
+  15. `fork(server):` Deepgram transcription on the environment (`apps/server/src/storefront/deepgram/`,
+     one line in `apps/server/src/server.ts`). F2.
+  16. `fork(mobile):` live words while dictating to an environment (`apps/mobile/src/storefront/voice/`,
+     one-line mounts in `VoiceInputProvider.tsx`, `voiceDestination.ts`, `ComposerDictationControl.tsx`). F2.
+  17. `fork(mobile):` transcript cleanup on the phone after Deepgram dictation
+     (`apps/mobile/src/storefront/voice/transcriptCleanup.ts`, one line in `VoiceInputProvider.tsx`). F2.
 - **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
   `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied). The Linux build runs
   it on the source, runs `fork/scripts/check-build.sh`, and checks its own archive with
@@ -63,7 +69,7 @@ upstream would take it.
 | B2 | Selecting text to the left closes the panel | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
 | B3 | Bottom menu bar stays visible in a thread | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
 | F1 | No telemetry or tracking | Fork patches, guard and build checks done; host runs our build with opt-outs; managed policy ready, not installed | Config + small patch + guard | S | No (on by default upstream) |
-| F2 | 2-step voice input (Deepgram) | Not started | Own endpoint option (Idea #32516, fork meanwhile) + own Deepgram service; live words in fork | M–L | No for now (closed #32530) |
+| F2 | 2-step voice input (Deepgram) | Built and tested with the real key on the host side (2026-11-26); iPhone/iPad part needs a device test; host needs one `service.env` line | Fork: Deepgram backend behind the environment's speech service, live stream from web and app, upstream's cleanup step | M–L | No for now (closed #32530) |
 | F3 | Subagent model and effort visible | Fixed on branch `storefront-f3-subagents` (2026-11-26): effort shows while a Claude Code subagent runs; not yet merged into `storefront` or live | Fork patch now, upstream bug-fix PR later | S | Good (follows #35333 and #43023) |
 | F4 | Usage indicator in a thread | Done in fork (branch `storefront-usage-display`, 2026-11-26); not yet seen on a device | Own file + one mount; Idea #40926 | S–M | Doubtful (feature) |
 | F5 | Only Tailscale or LAN, no T3 Connect | Paired over Tailscale Serve; host-sent push built on `storefront` (2026-11-26), not deployed yet (next server build, `service.env`, TestFlight) | Fork: host sends push itself | L | No (new connection method) |
@@ -164,19 +170,76 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
 
 ### F2: voice
 
-- Mobile today: on-device Apple Speech (iOS 26), passing final results only
-  (`apps/mobile/modules/t3-voice-transcription/ios/AppleSpeechEngine.swift`:77), or environment and
-  cloud transcription that upload the recording when you stop. No live words on mobile.
-- Cloud transcription URLs are hard-coded: OpenAI, xAI, OpenRouter
-  (`apps/server/src/speech/CloudSpeech.ts`:30-34). The cleanup model can already be any
-  OpenAI-compatible endpoint (`textGenerators` with `kind: "openaiCompatible"`).
-- Cleanup and "send after dictation" exist on web only (`apps/web/src/speech/voiceInputSession.ts`:194-230).
-- Deepgram is not supported anywhere.
-- Plan: (1) an "own endpoint (OpenAI-compatible)" transcription option, with our own service on the
-  host that calls Deepgram and returns cleaned-up text; supported upstream in Idea #32516, carried in
-  the fork meanwhile, starting from closed PR #32530 plus the mobile destination
-  (`CloudSpeech.ts` changed twice in 30 days). (2) Live words: a streaming path from the phone
-  through the host to Deepgram, fork-only.
+Built on branch `storefront-f2-voice` (2026-11-26). The environment does the work; the API key never
+leaves the host.
+
+- **Design.** With `STOREFRONT_DEEPGRAM_KEY_FILE` in the server's environment, the host's speech
+  service is replaced by a Deepgram backend (`apps/server/src/storefront/deepgram/DeepgramSpeech.ts`,
+  mounted with one line in `apps/server/src/server.ts`). Clients see it as the environment's only
+  active model, "Deepgram Nova-3", which streams. Nothing in the wire contracts changed. Without the
+  variable, the host behaves exactly as upstream.
+  - Live words: Deepgram runs behind upstream's existing speech WebSocket (`/ws/voice`), which until
+    now only served local streaming models. Interim results show as tentative text, finals as
+    committed text, as for local models.
+  - Uploads (`/api/voice/transcribe`) go to Deepgram's pre-recorded API, with the same options.
+  - Step 2 is upstream's own cleanup (`/api/voice/postProcess`, the environment's cleanup model).
+  - Web and desktop: no code change. Live preview comes from upstream's streaming path; cleanup needs
+    **Settings → Voice → Transcript cleanup** turned on once (upstream's consent model).
+  - iPhone and iPad: a new recorder on expo-audio's `AudioStream` (16 kHz mono 16-bit, no new native
+    code) streams to `/ws/voice` while you speak; the words show in the dictation row of every
+    composer; the final text gets cleaned up automatically when the environment uses Deepgram, then
+    lands in the draft. The recorder also writes a WAV file, so a dropped stream falls back to
+    uploading the whole recording. Android and cloud destinations keep upstream's upload path.
+- **Deepgram settings** (defaults, overridable in `service.env`):
+  - `model=nova-3` (`STOREFRONT_DEEPGRAM_MODEL`): the only Deepgram model with both Flemish and keyterm
+    prompting. Flux has no `nl-BE` and no smart formatting; Nova-2 has no keyterms.
+  - `language=multi&language_hint=nl-BE&language_hint=en` (`STOREFRONT_DEEPGRAM_LANGUAGE=nl-BE,en`; a
+    single code such as `nl-BE` means monolingual). Monolingual `nl-BE` drops English speech; in our
+    test it turned "the build is still failing on the CI pipeline" into "de beelden". Multi kept the
+    English and spelled loanwords better (`rollback`, `pull request`, `stagingserver`), at about
+    $0.001/min more.
+  - `smart_format=true` (punctuation, numerals), `interim_results=true`, `endpointing=100` (Deepgram's
+    value for code-switching; 300 for one language). Left out: `filler_words` and `dictation`
+    (English only), `numerals` and `punctuate` (in smart_format), `no_delay`, `utterance_end_ms` (you
+    stop recording yourself).
+  - `keyterm`: dictionary hints first, then personal and project words (web sends them), then the
+    environment's project dictionary (so the phone gets those too); at most 50 terms.
+  - Always `mip_opt_out=true` (no model training on our audio; no price impact since 2026-03-05) and
+    `redact_usage=true` (keyterms stay out of Deepgram's usage logs).
+  - EU endpoint `api.eu.deepgram.com` (`STOREFRONT_DEEPGRAM_URL`): audio stays in the EU; same key and
+    price.
+- **Test with the real key** (2026-11-26, Piper TTS: Flemish voice `nl_BE-nathalie`, English voice
+  `en_US-lessac` for the mixed clip, streamed at real time through `runSpeechSocket` and upstream's
+  `openSpeechStream` client):
+  - Mixed clip, live: interim text about every second; final 100 ms after stop: "Ik heb de bug in de
+    checkout gefixt, maar de beeld is stil failing on the CI pipeline. Kan jij dat even bekijken en
+    daarna de branch mergen?"
+  - Flemish with jargon, final: "Kan je de pull request van gisteren nog eens reviewen? En, de unit
+    tests falen op de staging server, nee ik bedoel op de productieserver. Schek ook even de Docker
+    Compose Config en de README."
+  - After upstream's cleanup prompt (Claude Haiku via the CLI, about 6 s): "… maar de build is still
+    failing on the CI pipeline …", "Zet de feature vlag af … want de API geeft een time-out. Daarna
+    moeten we de cache van Redis leegmaken …", and the spoken correction resolved ("… falen op de
+    productieserver").
+  - TTS reads English words with Dutch sounds, so real speech should do better on the jargon.
+- **New outbound destination**, on purpose: `api.eu.deepgram.com` (HTTPS and WSS), only when the key
+  file is set. It receives the audio of a dictation and the dictionary words. The telemetry guard
+  watches telemetry vendors and SDKs, not hosts, so it passes unchanged; the baseline was not touched.
+- **Host setup:** add to `~/.t3/service.env`:
+  `STOREFRONT_DEEPGRAM_KEY_FILE=/home/wouter/.t3/storefront/deepgram-api-key` (the file stays mode
+  600). Pick a fast **Cleanup model** in Settings → Voice (a text generator such as Claude Haiku over
+  the API): with a coding agent each cleanup starts a session and takes several seconds.
+- **Open:**
+  - Device test of the app part (needs a TestFlight build).
+  - The live recorder follows the iOS audio route and ignores the microphone list in Settings; with
+    expo-audio's `.record` category that likely means the built-in microphone, not AirPods.
+  - The phone sends no personal dictionary and no thread-project dictionary (upstream mobile has
+    neither); only the environment-wide project dictionary reaches Deepgram.
+  - The phone has no "skip cleanup" button and uses the default cleanup instructions; cleanup longer
+    than 20 s inserts the raw transcript.
+  - While Deepgram is on, local models stay listed but none of them transcribes.
+- **Upstream:** stays in the fork (Theo's stance on speech providers, see Upstream contributions).
+  Related Ideas: #32516 (own endpoint), #36900 (Deepgram).
 
 ### F3: subagent model and effort
 
@@ -433,3 +496,4 @@ need.
 | 2026-11-26 | Web UI branding kept minimal: only the SVG behind `T3Wordmark`, the web icons, window titles and the web manifest's name change, so the sidebar reads "S Code" and tabs say "Storefront Code"; body texts keep "T3 Code". |
 | 2026-11-26 | Feature ideas go to upstream's Ideas discussions first; where an Idea already exists, we upvote it and add our case instead of opening a new one. |
 | 2026-11-26 | Hardening after the fork review (`~/.local/share/storefront-code/fork-analysis-2026-11-26.md`): privacy goes into a managed policy, triage is off (it reports to upstream), and the Linux build gates on typecheck, tests, the telemetry guard and an artifact check. Copied "Copy thread" links in the web UI keep pointing at `app.t3.codes` (changing them is M and touches `threadLinks.ts`). |
+| 2026-11-26 | Voice (F2): Deepgram runs behind the environment's own speech service and stream, not as a separate service; nova-3 multilingual with nl-BE and en hints on the EU endpoint; on the phone, cleanup runs automatically when the environment uses Deepgram. |
