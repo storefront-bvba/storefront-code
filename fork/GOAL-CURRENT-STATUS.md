@@ -191,6 +191,15 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
   `~/Business/Workspace/storefront-code`. Xcode from the App Store is 27.2 (upstream builds with
   27.1). Keep the lid open: a sleeping Mac drops SSH and stops builds.
 - Build: `fork/scripts/ios-testflight.sh` on the Mac (telemetry guard, prebuild, archive, upload).
+- Signing: automatic, through the API key. The login keychain is locked over SSH, so signing uses
+  our own keychain `~/Library/Keychains/storefront-build.keychain-db` on the Mac
+  (`fork/scripts/ios-build-keychain.sh`): random password in `~/.config/storefront-code/` (mode
+  600), Apple Development and Apple Distribution identities created through the API from keys
+  generated on the Mac. No user password is needed for builds.
+- Development signing during archive needs at least one registered device: the iPhone 16 Pro Max
+  is registered (`node fork/scripts/asc.mjs device …`); the iPad can follow when needed.
+- App Groups cannot be created or assigned through the API: `group.be.storefront.code` and
+  `group.be.storefront.code.dev` are created and assigned by hand in the developer portal.
 - Still open:
   - URL scheme stays `t3code` (and `t3code-dev`, `t3code-preview`): changing it means editing
     `src/App.tsx`:143-145, both widget files and `package.json` scripts. Widget and Live Activity
