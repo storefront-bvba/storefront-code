@@ -11,7 +11,7 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import { AppState, Platform } from "react-native";
 import { msg } from "gt-react-native";
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import {
   type RelayDeviceRegistrationRequest,
   type RelayAgentActivitySnapshotResponse,
@@ -495,11 +495,14 @@ function environmentPublishesAgentActivity(environmentId: EnvironmentId): boolea
   );
 }
 
-export function armAgentAwarenessLiveActivityForLocalWork(input: {
+interface LocalWorkLiveActivityInput {
   readonly environmentId: EnvironmentId;
+  readonly threadId: ThreadId;
   readonly threadTitle: string;
   readonly projectTitle: string;
-}): void {
+}
+
+export function armAgentAwarenessLiveActivityForLocalWork(input: LocalWorkLiveActivityInput): void {
   if (!canRegisterRemoteLiveActivities() || !relayTokenProvider) {
     return;
   }
@@ -516,10 +519,7 @@ export function armAgentAwarenessLiveActivityForLocalWork(input: {
     });
 }
 
-function armAgentAwarenessLiveActivityForLocalWorkNow(input: {
-  readonly threadTitle: string;
-  readonly projectTitle: string;
-}): void {
+function armAgentAwarenessLiveActivityForLocalWorkNow(input: LocalWorkLiveActivityInput): void {
   try {
     if (getAgentLiveActivities().length > 0) {
       return;
@@ -534,15 +534,16 @@ function armAgentAwarenessLiveActivityForLocalWorkNow(input: {
         updatedAt: nowIso,
         activities: [
           {
-            environmentId: "",
-            threadId: "",
+            environmentId: input.environmentId,
+            threadId: input.threadId,
             projectTitle: input.projectTitle,
             threadTitle: input.threadTitle,
             modelTitle: "",
             phase: "starting",
             status: m(msg("Connecting", { $context: "agent status" })),
             updatedAt: nowIso,
-            deepLink: "/",
+            // The widget opens this row's link; the app drops a bare "/" link.
+            deepLink: `/threads/${encodeURIComponent(input.environmentId)}/${encodeURIComponent(input.threadId)}`,
           },
         ],
       },

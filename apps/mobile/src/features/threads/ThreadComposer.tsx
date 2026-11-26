@@ -586,6 +586,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     // Arm after send so preference reads and native Activity startup do not delay tap-frame feedback.
     armAgentAwarenessLiveActivityForLocalWork({
       environmentId: props.environmentId,
+      threadId: props.selectedThread.id,
       threadTitle: props.selectedThread.title,
       projectTitle: props.environmentLabel ?? "T3 Code",
     });
