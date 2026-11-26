@@ -7,7 +7,7 @@
 import type { ExpoConfig } from "expo/config";
 
 /** Apple Developer team that signs our builds. Not a secret: it is in every signed app. */
-export const STOREFRONT_APPLE_TEAM_ID = "";
+export const STOREFRONT_APPLE_TEAM_ID = "2Z43A4WSC3";
 
 const UPSTREAM_BUNDLE_PREFIX = "com.t3tools.t3code";
 const STOREFRONT_BUNDLE_PREFIX = "be.storefront.code";
