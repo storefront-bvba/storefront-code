@@ -10,6 +10,7 @@ import { resolveCloudPublicConfig } from "../features/cloud/publicConfig";
 import * as Tracing from "../features/observability/tracing";
 import * as NativeWebSocket from "../native/nativeWebSocket";
 import * as Persistence from "../persistence/layer";
+import * as HostRelayClient from "../storefront/push/hostRelayClient";
 import { disposeOnFoundationReplace, type FoundationHotModule } from "./foundation-fast-refresh";
 import { whenProtectedDataAvailable } from "./protectedData";
 
@@ -30,7 +31,7 @@ type RuntimeLayerSource =
   | typeof Tracing.layer;
 
 const layerRuntime = Layer.merge(
-  ManagedRelayLayer.layer(configuredRelayUrl()),
+  HostRelayClient.layer(ManagedRelayLayer.layer(configuredRelayUrl())),
   NativeWebSocket.layer,
 ).pipe(
   Layer.provideMerge(Dpop.layer),

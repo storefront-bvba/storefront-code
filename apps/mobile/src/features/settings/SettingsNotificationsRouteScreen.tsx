@@ -67,6 +67,7 @@ import { SettingsSection } from "./components/SettingsSection";
 import { SettingsSwitchRow } from "./components/SettingsSwitchRow";
 import { SettingsScreen } from "./components/SettingsScreen";
 import { resolveAgentAwarenessPlatformPresentation } from "./SettingsRouteScreen.logic";
+import { HostPushNotificationsScreen } from "../../storefront/push/HostPushNotificationsScreen";
 
 const updateLiveActivityPreference = createEnvironmentCommand(connectionAtomRuntime, {
   label: "updateLiveActivityPreference",
@@ -189,6 +190,7 @@ function useNotificationsReady(): boolean {
 
 export function SettingsNotificationsRouteScreen() {
   const gt = useGT();
+  if (!hasCloudPublicConfig()) return <HostPushNotificationsScreen />;
   if (!hasCloudPublicConfig()) {
     return (
       <SettingsScreen title={gt("Notifications")}>

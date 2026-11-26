@@ -47,6 +47,7 @@ import {
   startAgentLiveActivity,
 } from "./agentLiveActivity";
 import { resolveCloudPublicConfig } from "../cloud/publicConfig";
+import { hostPushRelayKey } from "../../storefront/push/hostPushKey";
 import { supportsAgentAwarenessPush } from "./capabilities";
 import { makeRelayDeviceRegistrationRequest, resolveApsEnvironment } from "./registrationPayload";
 
@@ -171,7 +172,7 @@ function mergeAgentAwarenessRegistrationPreferences(
 }
 
 function readRelayConfig(): { readonly url: string } | null {
-  const relayUrl = resolveCloudPublicConfig().relay.url;
+  const relayUrl = resolveCloudPublicConfig().relay.url ?? hostPushRelayKey();
   if (!relayUrl) {
     return null;
   }
