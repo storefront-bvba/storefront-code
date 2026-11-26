@@ -156,6 +156,9 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
   over the direct connection. Mostly new files on the server (about 1,500 lines, porting the relay's
   MIT code, using `node:http2`) and about 300 lines in the app behind the existing relay-client
   interface (`packages/client-runtime/src/relay/managedRelay.ts`:420-432).
+- APNs key (2026-11-26): "Storefront Code Push", Key ID `R2MGM4T6A5`, Sandbox & Production, team
+  scoped. On the Omarchy host in `~/.t3/storefront/AuthKey_R2MGM4T6A5.p8` (mode 600, outside the
+  repo); a backup copy is in Wouter's password manager.
 - Payloads: IDs, phase and counts only. Live Activity pushes cannot be decrypted on the device, so
   titles come from what the app caches in its App Group.
 
