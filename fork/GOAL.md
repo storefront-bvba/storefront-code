@@ -1,0 +1,130 @@
+# Storefront Code: goal
+
+Storefront Code is an unofficial fork of the T3 Code source code. It is not affiliated with,
+endorsed by, or maintained by T3 Tools, Inc. "T3 Code" is their trademark (see
+[TRADEMARK.md](../TRADEMARK.md)); our builds use their own name, icon and identifiers.
+
+This file says what we want and how we work, so the goal survives many rebases. What is done and
+what is open lives in [GOAL-CURRENT-STATUS.md](GOAL-CURRENT-STATUS.md): update it whenever
+something changes.
+
+## Why this fork exists
+
+We use T3 Code every day to drive Claude Code on several machines, from the desktop and from an
+iPhone. Its threads, settling and unsettling, delegation and linked environments are what we
+depend on, and we have nothing against the project.
+
+In November 2026 it became public that T3 Code had sent product analytics by default since March
+2026, after the homepage had promised "no telemetry unless you opt in" (that promise was removed
+in June 2026), and that it derived install IDs from Claude and Codex sign-in files. Upstream
+removed the sign-in file reads in v0.1.12, but analytics stay on by default. We want a build where
+privacy is not a setting someone can change for us, plus a few fixes and features for our iPhone
+workflow.
+
+## How we work
+
+- **Stay close to upstream.** Upstream moves fast (about 6,000 commits a month). Every line we
+  carry has to survive a weekly rebase, so the fork stays a thin patch set.
+- **Contribute what upstream will take.** Upstream accepts bug fixes from outside the team (see
+  [CONTRIBUTING.md](../CONTRIBUTING.md)): one problem per PR, at most 3 open PRs per person,
+  evidence of the bug and the fix (before/after screenshots, a short video for motion). Feature
+  ideas go to the [Ideas discussions](https://github.com/pingdotgg/t3code/discussions/categories/ideas)
+  first; a feature PR is only opened when a maintainer asks for it. Never automate or spam them.
+- **Carry the rest ourselves**, in this order of preference:
+  1. configuration (environment, `settings.json`, build variables) over code;
+  2. new files with a one-line mount over edits in existing files;
+  3. small edits in files that rarely change over edits in hot files.
+- **Track stable releases, not `main`.** The fork is rebased onto the newest stable tag
+  (`vX.Y.Z`, roughly weekly). Server, desktop and app are built from the same base.
+- **Keep the two docs current.** Every change, PR, sync and decision updates
+  [GOAL-CURRENT-STATUS.md](GOAL-CURRENT-STATUS.md).
+
+## Rules that always hold
+
+- **No data loss, no fresh start.** We continue on the T3 Code data we already have:
+  - Use the same T3 home (`~/.t3`): threads, projects, settings, secrets, the environment ID and
+    paired devices stay where they are.
+  - Never run a fork build that is older than the version a machine last ran. Database migrations
+    only go forward.
+  - Never add our own migrations to upstream's migration chain; a renumbered chain locks us out of
+    upstream. Fork-only state lives in its own files.
+  - Switch runtimes through T3's launcher, which snapshots SQLite and rolls back a failed start,
+    and take our own copy of `~/.t3/userdata` before each switch. Keep the previous runtime for
+    rollback.
+  - Do not interrupt running threads: restart a service only when no thread is running or waiting.
+- **Zero telemetry.** No product analytics, tracing, crash reporting or install IDs leave our
+  machines. A guard test fails the build when a sync brings any of it back.
+- **No third party in the data path.** Devices reach hosts over Tailscale (or the trusted LAN at
+  home). No T3 Connect, no Clerk, no relay. Push notifications go from our own host to Apple and
+  carry IDs and status only, never thread content.
+- **No secrets in this repository.** It is public (a GitHub fork of a public repository). Apple
+  keys, API keys and tokens stay out of git.
+- **Our own identity.** App name "Storefront Code", our own icon, bundle IDs, App Group, URL scheme
+  and Apple team. Builds go to our own TestFlight.
+
+## Branches
+
+| Branch | Content |
+| --- | --- |
+| `main` | Mirror of upstream `main`. Never commit to it. |
+| `storefront` | Default working branch: the newest upstream stable tag plus our patch stack, one commit per change. The `fork/` folder exists only here. |
+| `fix/<topic>` | One upstream PR each, cut from `upstream/main`. Once merged upstream, the matching commit drops out of `storefront` at the next rebase. |
+
+The `upstream` remote has its push URL disabled on purpose.
+
+## The wishes
+
+Written by Wouter on 2026-11-26. Changes to a wish are noted in place, with a date.
+
+### Essential bug fixes
+
+- Clicking on the "live updates" (an iOS feature on the lock screen) opens the app where it was.
+  It would be better if it opened the first "waiting for input" thread, or if there isn't one a
+  "done" thread because that's likely the reason you tapped the "live update" widget.
+- When typing a prompt in the textarea, you can't select text to the left because the panel moves
+  to close. You can select text to the right, just not to the left. This makes text editing hard.
+  The panel should not move when trying to select text.
+- The app has a small bottom menu bar which is hidden when in a thread. However, there are times
+  when you end up in a thread and the footer menu is still shown. This blocks the prompt textarea
+  preventing normal interaction. I believe this situation occurs when clicking the live updates or
+  other link that takes you to a specific thread while the menu was still open.
+
+### Essential features
+
+- Full privacy and no telemetry or user tracking of any kind.
+- 2-step voice input like Claude Code has. This should use the environment's voice capabilities.
+  The first step shows words as you speak. When done speaking a 2nd step automatically cleans up
+  the input (punctuation, corrections, capitals, ehms, etc). After that you can either edit or send
+  the message. In 99.9% of the cases the message should already be good and you send it right
+  away. On the environment's side there is support for Deepgram's API which can do the 2-step
+  approach.
+  - *2026-11-26:* approach: an "own endpoint" option for transcription on the environment, with our
+    own small service behind it that calls Deepgram and returns cleaned-up text. Live words while
+    speaking need a streaming path and are the larger part.
+- When you have subagents running, you can't see which model they are and what effort they run at.
+- Seeing a simple usage indicator in a corner while in a thread would be great to know if you're
+  running out. This should be accurate for the current thread.
+  - *2026-11-26:* this is display only: the app already has the numbers (Usage page and
+    `/usage-limits`); nothing extra has to be fetched.
+- No T3 Connect for connecting environments and apps, but using only Tailscale (or the LAN).
+- Use our own Apple Developer account for push notifications and live updates instead of T3. We
+  deploy using TestFlight.
+- Full end-to-end encryption.
+  - *2026-11-26:* nothing to build. Tailscale encrypts device-to-host traffic, the home LAN is
+    trusted, T3 Connect goes away, and our own push payloads carry no content.
+
+### Nice to haves
+
+- The usage graph when you have multiple accounts combined should add up to 1 large meter instead
+  of multiple meters stitched together.
+- The usage meter should be switchable to % used vs % remaining. This can be confusing as some
+  apps report it differently.
+- A secure API to create, read, follow, message, settle and unsettle threads from a remote server
+  (i.e. a ticket system or ERP starts a thread and work starts automatically).
+
+### Dropped
+
+- *A monospaced font option.* Dropped on 2026-11-26: not worth the effort (web and desktop already
+  have font pickers; mobile would need a new setting).
+- *A visual cue per thread showing its environment.* Dropped on 2026-11-26: the app already shows
+  an environment icon and name when more than one connection is saved.
