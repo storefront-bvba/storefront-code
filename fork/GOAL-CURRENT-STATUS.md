@@ -13,6 +13,10 @@ patch, a PR, a sync, a decision, a finding.
   3. `fork(mobile):` app identity in `apps/mobile/storefront-identity.ts`, applied by the last line
      of `apps/mobile/app.config.ts` (plus one import), icon in `fork/assets/`.
   4. `fork:` telemetry guard `fork/scripts/check-telemetry.mjs` with `fork/telemetry-baseline.json`.
+  5. `fork(shared):` update source `storefront-bvba/storefront-code` instead of `pingdotgg/t3code`
+     (`packages/shared/src/cliRelease.ts`, 1 line), so no client or `t3 update` swaps in an upstream build.
+  6. `fork:` build and install scripts in `fork/scripts/` (iOS TestFlight, build keychain, App Store
+     Connect API, Linux runtime in an Ubuntu container, runtime install with backup).
 - **Run the guard** after every rebase: `node fork/scripts/check-telemetry.mjs`.
 - **Expected upstream test failure:** `apps/mobile/app.config.test.ts` ("keeps the iOS and Android
   identifiers") asserts T3's bundle IDs and domains, so it fails in the fork by design.
@@ -42,7 +46,7 @@ upstream would take it.
 
 | Machine | State |
 | --- | --- |
-| Omarchy PC (host) | Official T3 Code: `t3code-bin` 0.1.11 (AUR) for CLI and desktop; background service still on runtime 0.1.10 (versions differ: use the runtime's own `t3` for commands that open the database). 2026-11-26: `T3CODE_TELEMETRY_ENABLED=false` and `DO_NOT_TRACK=1` added to `~/.t3/service.env`; `enableProviderUpdateChecks: false` in `settings.json` (live). Restarted at 10:54 by a one-off watcher once no thread was running; the new server process has the opt-out. T3 Connect on (kept until F5 push works). LAN on (trusted). |
+| Omarchy PC (host) | 2026-11-26 ~14:00: switching the background service from official runtime 0.1.10 to our build `0.1.12-storefront.25` (`fork/scripts/build-linux-cli.sh`, then `fork/scripts/install-runtime.sh`; 0.1.10 stays for rollback, database backup in `~/.t3/backups/`). `t3code-bin` (desktop app and CLI) removed; Tailscale 1.104.7. The web UI opens from the launcher "Storefront Code" in its own extension-free Chromium profile. Until the switch: the old service on 0.1.10, use its own `t3` for commands that open the database. 2026-11-26: `T3CODE_TELEMETRY_ENABLED=false` and `DO_NOT_TRACK=1` added to `~/.t3/service.env`; `enableProviderUpdateChecks: false` in `settings.json` (live). Restarted at 10:54 by a one-off watcher once no thread was running; the new server process has the opt-out. T3 Connect on (kept until F5 push works). LAN on (trusted). |
 | iPhone | Storefront Code from TestFlight, paired over Tailscale. The official T3 Code app (through T3 Connect) stays installed until Storefront Code covers push and Live Activities. |
 | MacBook Air (2025) | Not used yet. Needed for Xcode builds and TestFlight uploads, unless CI builds take over. |
 
@@ -251,6 +255,7 @@ need.
 
 | Date | Upstream tag | Notes |
 | --- | --- | --- |
+| 2026-11-26 | v0.1.12 | First own builds: iOS TestFlight `202611261129`, Linux runtime `0.1.12-storefront.25` (verified: no `ingest.t3.codes`, no PostHog key, no Axiom, update source `storefront-bvba/storefront-code`). |
 | 2026-11-26 | v0.1.12 | Fork created (`storefront-bvba/storefront-code`); `storefront` branched from the tag. GitHub Actions disabled in the fork (upstream workflows need upstream's runners). |
 
 ## Decisions
