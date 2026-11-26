@@ -20,6 +20,7 @@ import { createVoiceRecorder } from "../../native/voiceRecorder";
 import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
 import { getNativeShowcaseScene } from "../showcase/nativeShowcaseScene";
 import { createLiveVoiceRecorder } from "../../storefront/voice/liveVoiceRecorder";
+import { environmentTranscriptCleanup } from "../../storefront/voice/transcriptCleanup";
 import {
   voiceInputBlocksSubmission,
   type VoiceTranscriber,
@@ -128,6 +129,7 @@ export const voiceInputAtom = Atom.make((get) => {
       return transcriber === "checking" ? null : transcriber;
     },
     requestPermission: permission.requestPermission,
+    postProcess: environmentTranscriptCleanup(registry),
     configureRecording: async () => {
       const token = acquireAudioSession("recording");
       audioToken = token;
