@@ -33,7 +33,9 @@
     }
   },
   "dependencies": {
-    "apps/mobile/package.json": ["expo-observe"]
+    "apps/mobile/package.json": [
+      "expo-observe"
+    ]
   },
   "hosts": [
     "1.1.1.1",
@@ -143,6 +145,7 @@
   "allowedHosts": {
     "api.anthropic.com": "Claude provider and usage limits (our main provider)",
     "api.deepgram.com": "own voice transcription (F2), called from the host with our key",
+    "api.eu.deepgram.com": "own voice transcription (F2) on Deepgram's EU endpoint, called from the host with our key",
     "api.push.apple.com": "own push and Live Activities (F5), sent from the host",
     "api.sandbox.push.apple.com": "own push for development builds (F5)"
   }
