@@ -21,8 +21,8 @@ patch, a PR, a sync, a decision, a finding.
      and `apps/mobile/src/storefront/push/`, `packages/contracts/src/storefrontPush.ts`,
      `fork/scripts/check-push-port.mjs` and `fork/scripts/apns-check.mjs`; edits of 2-7 lines in
      `AgentAwarenessRelay.ts`, `cloud/config.ts`, `server.ts`, `environmentHttp.ts`,
-     `CloudAuthProvider.tsx`, `lib/runtime.ts`, `remoteRegistration.ts` and
-     `SettingsNotificationsRouteScreen.tsx` (see F5 below).
+     `CloudAuthProvider.tsx`, `lib/runtime.ts`, `remoteRegistration.ts`,
+     `SettingsNotificationsRouteScreen.tsx` and `SettingsRouteScreen.tsx` (see F5 below).
   8. `fork(shared):` no favicon lookups at Google: `faviconUrlForOrigin` returns `null`
      (`packages/shared/src/favicon.ts`, 1 line plus a comment; two tests follow).
   9. `fork:` the guard checks hard-coded hosts and built artifacts; the Linux build runs it.
@@ -341,9 +341,14 @@ leaves the host.
     `STOREFRONT_APNS_KEY_FILE=/home/wouter/.t3/storefront/AuthKey_R2MGM4T6A5.p8`,
     `STOREFRONT_APNS_KEY_ID=R2MGM4T6A5`, `STOREFRONT_APNS_TEAM_ID=2Z43A4WSC3`,
     `STOREFRONT_APNS_TOPICS=be.storefront.code,be.storefront.code.dev`.
-  - Still open: server build and host switch, TestFlight build, check on the phone (alerts, card,
-    tap), then `t3 connect unlink` on the host. Android gets nothing (no FCM). Two push hosts:
-    alerts from both, the card only from the first.
+  - Server live on the Omarchy host since 2026-11-26 16:59 (`0.1.12-storefront.68`, the
+    `STOREFRONT_APNS_*` lines in `service.env`; the log says "Storefront host push enabled").
+  - TestFlight build 202611261527 did not show the Notifications row: without T3 Connect, Settings
+    shows upstream's local list, which has only Environments. Fixed on 2026-11-26: the local list
+    shows Notifications too, and the app asks for notification permission itself once the first
+    paired host can push (upstream asks after a Connect sign-in), then registers with the hosts.
+  - Still open: check on the phone (alerts, card, tap), then `t3 connect unlink` on the host.
+    Android gets nothing (no FCM). Two push hosts: alerts from both, the card only from the first.
 
 ### F6: own Apple account
 

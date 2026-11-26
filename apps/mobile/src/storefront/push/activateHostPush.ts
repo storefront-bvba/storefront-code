@@ -2,8 +2,10 @@
 // (fork/design/F5-host-push.md). Called once at startup where upstream drops the relay account.
 import { setManagedRelaySession } from "@t3tools/client-runtime/relay";
 import * as Effect from "effect/Effect";
+import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
+import { requestAgentNotificationPermission } from "../../features/agent-awareness/notificationPermissions";
 import {
   refreshActiveLiveActivityRemoteRegistration,
   refreshAgentAwarenessRegistration,
@@ -21,6 +23,20 @@ const HOST_PUSH_IDENTITY = "storefront-host-push";
 const hostPushToken = () => Promise.resolve<string | null>(HOST_PUSH_IDENTITY);
 
 let stopWatchingHosts: (() => void) | null = null;
+let askedForNotifications = false;
+
+/**
+ * Upstream asks for notifications after a T3 Connect sign-in, which this build never has. Ask once
+ * the first paired host can send push instead; iOS shows its prompt only while nothing was chosen.
+ */
+async function askForNotificationsOnce(): Promise<void> {
+  if (askedForNotifications) return;
+  askedForNotifications = true;
+  const before = await Notifications.getPermissionsAsync().catch(() => null);
+  if (before === null || before.granted || !before.canAskAgain) return;
+  const result = await runtime.runPromise(requestAgentNotificationPermission).catch(() => null);
+  if (result?.type === "granted") await registerAgain();
+}
 
 function registerAgain(): Promise<void> {
   return runtime
@@ -56,6 +72,7 @@ export function activateHostPush(): void {
     (hosts) => {
       const key = pushHostsKey(hosts);
       setHostPushHostsKey(key);
+      if (key !== null) void askForNotificationsOnce();
       // A new host, or a new session on one, gets the device and the card at once.
       if (previousKey !== undefined && key !== null && key !== previousKey) void registerAgain();
       previousKey = key;
