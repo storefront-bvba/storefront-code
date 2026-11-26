@@ -132,6 +132,9 @@ Written by Wouter on 2026-11-26. Changes to a wish are noted in place, with a da
   - *2026-11-26:* approach: an "own endpoint" option for transcription on the environment, with our
     own small service behind it that calls Deepgram and returns cleaned-up text. Live words while
     speaking need a streaming path and are the larger part.
+  - *2026-11-26:* optimised for Flemish Dutch (nl-BE) with IT jargon in between and short English
+    phrases or words (code-switching). The Deepgram API key is handed over in `~/Desktop/secret.txt`
+    and lives on the host, never in this repository.
 - When you have subagents running, you can't see which model they are and what effort they run at.
 - Seeing a simple usage indicator in a corner while in a thread would be great to know if you're
   running out. This should be accurate for the current thread.
