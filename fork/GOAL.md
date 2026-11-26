@@ -54,17 +54,18 @@ Before switching any machine to a new build, and recorded in the sync log of
    `git diff <old>..<new> --stat`), with extra attention for `apps/server/src/telemetry`,
    `packages/shared/src/cliRelease.ts`, `apps/mobile/app.config.ts`, `infra/relay`,
    `apps/server/src/relay`, `apps/server/src/cloud` and every `package.json`.
-2. **Look for anything new that phones home**: new hard-coded hosts and URLs in shipped code
-   (`git diff <old>..<new> -- apps packages | grep '^+' | grep -oE 'https?://[^"'"'"' )]+'`), new
-   analytics, tracing, crash-reporting or update SDKs, new defaults that switch something on,
-   new background checks. Neutralise each one (config first, a small patch second) before the
-   build ships.
-3. **Run the guards** `node fork/scripts/check-telemetry.mjs` and
+2. **Look for anything new that phones home**: new hard-coded hosts and URLs in shipped code (the
+   guard lists each host that is not in its reviewed baseline), new analytics, tracing,
+   crash-reporting or update SDKs, new defaults that switch something on, new background checks.
+   Neutralise each one (config first, a small patch second) before the build ships.
+3. **Run the guards** `node fork/scripts/check-telemetry.mjs` (the Linux build runs it too) and
    `node fork/scripts/check-push-port.mjs`. A failure is a finding to resolve, never something to
    `--update` away without reading it.
 4. **Check every built artifact**, not only the source: the Linux runtime and the iOS app must not
    contain `ingest.t3.codes`, a PostHog key, Axiom, `u.expo.dev` or upstream's release source
    (`pingdotgg/t3code/releases`), and must contain our update source.
+   `node fork/scripts/check-telemetry.mjs --artifact <unpacked build>` checks this; the Linux build
+   runs it on its archive.
 5. **Walk every wish** in the overview table of the status doc and confirm it still holds on the
    new base (privacy, Tailscale only, own push, own Apple identity, and each fixed bug).
 6. **Re-evaluate every carried patch.** If upstream now fixes a bug or ships a feature we carry,
@@ -87,6 +88,9 @@ Before switching any machine to a new build, and recorded in the sync log of
     and take our own copy of `~/.t3/userdata` before each switch. Keep the previous runtime for
     rollback.
   - Do not interrupt running threads: restart a service only when no thread is running or waiting.
+  - Install runtimes only with `fork/scripts/install-runtime.sh`. `npx t3`, `npm install --global
+    t3`, `t3.codes/install.sh` and the web UI's update hints install upstream builds, with
+    analytics on by default.
 - **Zero telemetry.** No product analytics, tracing, crash reporting or install IDs leave our
   machines. A guard test fails the build when a sync brings any of it back.
 - **No third party in the data path.** Devices reach hosts over Tailscale (or the trusted LAN at
