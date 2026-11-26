@@ -26,9 +26,9 @@ if [ ! -f "$KEYCHAIN" ]; then
 	security create-keychain -p "$PASSWORD" "$KEYCHAIN"
 	echo "created $KEYCHAIN"
 fi
+security unlock-keychain -p "$PASSWORD" "$KEYCHAIN"
 # No auto-lock timeout; it is unlocked per build anyway.
 security set-keychain-settings "$KEYCHAIN"
-security unlock-keychain -p "$PASSWORD" "$KEYCHAIN"
 
 # Keep the user's keychains and add ours to the search list, so Xcode and codesign find it.
 search_list=()
