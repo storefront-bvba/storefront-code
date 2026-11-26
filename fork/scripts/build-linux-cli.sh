@@ -9,7 +9,9 @@
 # (uncommitted changes are not included), skips upstream's relay tracing configuration (that is
 # Axiom telemetry), and writes build/linux-cli/t3-<version>-linux-x64.tar.gz, smoke-tested.
 # The telemetry guard runs on the source first and on the unpacked archive last (fork/GOAL.md,
-# sync checklist steps 3 and 4); an archive that fails is not copied out.
+# sync checklist steps 3 and 4); fork/scripts/check-build.sh (typecheck and tests) runs before the
+# build, and the built web client must boot in headless Chromium. An archive that fails any of
+# these is not copied out.
 # Install it with fork/scripts/install-runtime.sh.
 set -euo pipefail
 
@@ -24,21 +26,24 @@ NODE_VERSION=$(node -p "require('./package.json').engines.node")
 PNPM_VERSION=$(node -p "require('./package.json').packageManager.split('@')[1]")
 OUT="$ROOT/build/linux-cli"
 mkdir -p "$OUT"
+# A worktree's .git names the main checkout's git directory by its absolute path; mount it there.
+GIT_COMMON=$(realpath "$(git rev-parse --git-common-dir)")
 
 echo "== Storefront Code $VERSION for linux-x64 from $(git rev-parse --short HEAD) (node $NODE_VERSION, pnpm $PNPM_VERSION)"
 [ -z "$(git status --porcelain --untracked-files=no)" ] || echo "note: uncommitted changes are not part of this build"
 
-docker run --rm \
+docker run --rm --name "${CONTAINER_NAME:-storefront-code-build-$$}" \
 	-e VERSION="$VERSION" -e NODE_VERSION="$NODE_VERSION" -e PNPM_VERSION="$PNPM_VERSION" \
 	-e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
-	-v "$ROOT:/repo:ro" -v "$OUT:/out" \
+	-v "$ROOT:/repo:ro" -v "$GIT_COMMON:$GIT_COMMON:ro" -v "$OUT:/out" \
 	-v storefront-code-pnpm-store:/root/.local/share/pnpm/store \
 	-v storefront-code-cargo:/root/.cargo/registry \
+	-v storefront-code-playwright:/root/.cache/ms-playwright \
 	ubuntu:24.04 bash -euo pipefail -c '
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends ca-certificates curl git xz-utils build-essential \
-	python3 pkg-config libsecret-1-dev patchelf libatomic1 jq >/dev/null
+	python3 pkg-config libsecret-1-dev patchelf libatomic1 jq openssh-client >/dev/null
 
 cd /tmp
 curl -fsSLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz"
@@ -62,6 +67,8 @@ pnpm install --lockfile-only --ignore-scripts >/dev/null
 pnpm install --frozen-lockfile >>/tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
 # Build steps spawn `vp` (Vite+) by name; CI installs it globally, here it comes from the workspace.
 export PATH="/build/node_modules/.bin:$PATH"
+echo "== typecheck and tests"
+fork/scripts/check-build.sh
 echo "== web client and server"
 pnpm exec vp run --filter t3 build
 # The server build puts T3's development icons into dist/client; upstream's release replaces them
@@ -69,6 +76,10 @@ pnpm exec vp run --filter t3 build
 for icon in favicon.ico favicon-16x16.png favicon-32x32.png apple-touch-icon.png icon-192x192.png icon-512x512.png; do
 	cp "apps/web/public/$icon" "apps/server/dist/client/$icon"
 done
+echo "== boot the built web client"
+node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium >/tmp/playwright.log 2>&1 ||
+	{ tail -40 /tmp/playwright.log; exit 1; }
+node apps/web/scripts/verify-built-boot.ts
 echo "== single executable"
 node apps/server/scripts/cli.ts build-exe
 echo "== resource monitor"
