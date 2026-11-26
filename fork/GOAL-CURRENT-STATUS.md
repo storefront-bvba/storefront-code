@@ -181,7 +181,16 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
     `be.storefront.code.dev`, each with `.widgets` and `.sharing`; Push Notifications on both apps,
     App Groups on all six. The App Group containers themselves are created by Xcode's automatic
     signing at the first build (the API has no endpoint for them).
-  - App record in App Store Connect: to create by hand (the API cannot create apps).
+  - App record "Storefront Code" (`be.storefront.code`, App Store Connect ID 6839547728), created by
+    hand on 2026-11-26 (the API cannot create apps).
+  - Internal TestFlight group "Storefront" with access to all builds, every team user in it
+    (`node fork/scripts/asc.mjs testers`).
+- Build Mac: MacBook Air (macOS 27.0.1), reachable over Tailscale as `macbook` (key
+  `id_system_storefront`). Toolchain: Homebrew, mise (node 26.13.1, pnpm 12.14.0), CocoaPods
+  1.17.0, the API key in `~/.appstoreconnect/private_keys/`, the fork in
+  `~/Business/Workspace/storefront-code`. Xcode from the App Store is 27.2 (upstream builds with
+  27.1). Keep the lid open: a sleeping Mac drops SSH and stops builds.
+- Build: `fork/scripts/ios-testflight.sh` on the Mac (telemetry guard, prebuild, archive, upload).
 - Still open:
   - URL scheme stays `t3code` (and `t3code-dev`, `t3code-preview`): changing it means editing
     `src/App.tsx`:143-145, both widget files and `package.json` scripts. Widget and Live Activity

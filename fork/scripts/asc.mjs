@@ -3,6 +3,7 @@
 //
 //   node fork/scripts/asc.mjs ids        list our registered bundle IDs and their capabilities
 //   node fork/scripts/asc.mjs register   register missing bundle IDs and capabilities (idempotent)
+//   node fork/scripts/asc.mjs testers    internal TestFlight group "Storefront" with all team users
 //   node fork/scripts/asc.mjs apps       list App Store Connect app records
 //
 // Reads ASC_KEY_ID, ASC_ISSUER_ID and optionally ASC_KEY_PATH (default
@@ -129,12 +130,51 @@ if (command === "ids") {
     }
   }
   console.log("done");
+} else if (command === "testers") {
+  // Internal TestFlight group that gets every build automatically, with every App Store Connect
+  // user in it (internal testers must be users of the team).
+  const apps = await api("GET", `/v1/apps?filter[bundleId]=${BASE}`);
+  const app = apps.data?.[0];
+  if (!app) throw new Error(`No App Store Connect app for ${BASE}: create it first.`);
+  const groups = await api("GET", `/v1/apps/${app.id}/betaGroups`);
+  let group = groups.data?.find((g) => g.attributes.isInternalGroup && g.attributes.name === "Storefront");
+  if (!group) {
+    const created = await api("POST", "/v1/betaGroups", {
+      data: {
+        type: "betaGroups",
+        attributes: { name: "Storefront", isInternalGroup: true, hasAccessToAllBuilds: true },
+        relationships: { app: { data: { type: "apps", id: app.id } } },
+      },
+    });
+    group = created.data;
+    console.log(`created internal group Storefront (${group.id})`);
+  }
+  const members = await api("GET", `/v1/betaGroups/${group.id}/betaTesters?limit=200`);
+  const memberEmails = new Set((members.data ?? []).map((t) => t.attributes.email?.toLowerCase()));
+  const users = await api("GET", "/v1/users?limit=200");
+  for (const user of users.data ?? []) {
+    const email = user.attributes.username.toLowerCase();
+    if (memberEmails.has(email)) continue;
+    await api("POST", "/v1/betaTesters", {
+      data: {
+        type: "betaTesters",
+        attributes: {
+          email,
+          firstName: user.attributes.firstName,
+          lastName: user.attributes.lastName,
+        },
+        relationships: { betaGroups: { data: [{ type: "betaGroups", id: group.id }] } },
+      },
+    });
+    console.log(`added ${email} to Storefront`);
+  }
+  console.log("done");
 } else if (command === "apps") {
   const result = await api("GET", "/v1/apps?limit=50");
   for (const app of result.data ?? []) {
     console.log(`${app.id}  ${app.attributes.bundleId}  "${app.attributes.name}"`);
   }
 } else {
-  console.error("Usage: node fork/scripts/asc.mjs ids|register|apps");
+  console.error("Usage: node fork/scripts/asc.mjs ids|register|testers|apps");
   process.exit(2);
 }
