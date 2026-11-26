@@ -586,7 +586,8 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
           ) : (
             <V5CardStackView
               {...props}
-              onRootVisibilityChange={setPrimaryVisible}
+              // UIKit lays out a prewarmed hidden tab, so its root "appears" over the shown tab's thread.
+              onRootVisibilityChange={headerOnly ? undefined : setPrimaryVisible}
               onNativePopChange={setNativelyPoppingWorkspaceRoute}
               descriptors={slotDescriptors}
               state={{
