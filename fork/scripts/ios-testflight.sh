@@ -7,7 +7,8 @@
 # node@26.13.1 and pnpm@12.14.0, CocoaPods, `pnpm install` done, and the App Store Connect API key
 # in ~/.appstoreconnect/private_keys/AuthKey_<ASC_KEY_ID>.p8 (or ASC_KEY_PATH).
 # Signing is automatic: Xcode creates or reuses certificates, App Groups and profiles through the
-# API key. Over SSH the login keychain is locked; KEYCHAIN_PASSWORD_FILE unlocks it for the build.
+# API key. Over SSH the login keychain is locked: unlock it first in the same SSH session
+# (`security unlock-keychain`), or pass KEYCHAIN_PASSWORD_FILE. Its lock settings are left alone.
 #
 # Optional: APP_VARIANT (production), BUILD_NUMBER (UTC timestamp), UPLOAD=0 to stop after export.
 set -euo pipefail
@@ -34,7 +35,6 @@ run node fork/scripts/check-telemetry.mjs
 
 if [ -n "${KEYCHAIN_PASSWORD_FILE:-}" ]; then
 	security unlock-keychain -p "$(cat "$KEYCHAIN_PASSWORD_FILE")" "$HOME/Library/Keychains/login.keychain-db"
-	security set-keychain-settings -t 7200 "$HOME/Library/Keychains/login.keychain-db"
 fi
 
 (cd apps/mobile && run pnpm exec expo prebuild --clean --platform ios)
