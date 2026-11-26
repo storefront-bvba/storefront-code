@@ -5,6 +5,10 @@
 //   node fork/scripts/asc.mjs register   register missing bundle IDs and capabilities (idempotent)
 //   node fork/scripts/asc.mjs testers    internal TestFlight group "Storefront" with all team users
 //   node fork/scripts/asc.mjs apps       list App Store Connect app records
+//   node fork/scripts/asc.mjs devices    list registered devices
+//   node fork/scripts/asc.mjs device "<name>" <udid>   register a device (idempotent)
+//     Development signing needs at least one; read the UDID on the Mac with
+//     `xcrun devicectl list devices` while the device is connected.
 //
 // Reads ASC_KEY_ID, ASC_ISSUER_ID and optionally ASC_KEY_PATH (default
 // ~/.appstoreconnect/private_keys/AuthKey_<ASC_KEY_ID>.p8) from the environment.
@@ -174,7 +178,25 @@ if (command === "ids") {
   for (const app of result.data ?? []) {
     console.log(`${app.id}  ${app.attributes.bundleId}  "${app.attributes.name}"`);
   }
+} else if (command === "devices") {
+  const result = await api("GET", "/v1/devices?limit=200");
+  for (const device of result.data ?? []) {
+    const { name, udid, model, status } = device.attributes;
+    console.log(`${udid}  "${name}"  ${model ?? ""} ${status}`);
+  }
+} else if (command === "device") {
+  const [name, udid] = process.argv.slice(3);
+  if (!name || !udid) throw new Error('Usage: node fork/scripts/asc.mjs device "<name>" <udid>');
+  const existing = await api("GET", `/v1/devices?filter[udid]=${encodeURIComponent(udid)}`);
+  if (existing.data?.length) {
+    console.log(`already registered: "${existing.data[0].attributes.name}"`);
+  } else {
+    await api("POST", "/v1/devices", {
+      data: { type: "devices", attributes: { name, udid, platform: "IOS" } },
+    });
+    console.log(`registered "${name}"`);
+  }
 } else {
-  console.error("Usage: node fork/scripts/asc.mjs ids|register|testers|apps");
+  console.error("Usage: node fork/scripts/asc.mjs ids|register|testers|apps|devices|device");
   process.exit(2);
 }
