@@ -38,6 +38,37 @@ workflow.
   (`vX.Y.Z`, roughly weekly). Server, desktop and app are built from the same base.
 - **Keep the two docs current.** Every change, PR, sync and decision updates
   [GOAL-CURRENT-STATUS.md](GOAL-CURRENT-STATUS.md).
+- **Every sync re-checks every goal.** A clean rebase proves nothing: upstream can add telemetry,
+  a new outbound connection or a new dependency without touching our patches, and it can fix a
+  bug or add a feature we carry ourselves. Never sync blindly; work through the checklist below.
+
+## Sync checklist (every rebase or update)
+
+Before switching any machine to a new build, and recorded in the sync log of
+[GOAL-CURRENT-STATUS.md](GOAL-CURRENT-STATUS.md):
+
+1. **Read what changed upstream** between the old and the new tag (release notes and
+   `git diff <old>..<new> --stat`), with extra attention for `apps/server/src/telemetry`,
+   `packages/shared/src/cliRelease.ts`, `apps/mobile/app.config.ts`, `infra/relay`,
+   `apps/server/src/relay`, `apps/server/src/cloud` and every `package.json`.
+2. **Look for anything new that phones home**: new hard-coded hosts and URLs in shipped code
+   (`git diff <old>..<new> -- apps packages | grep '^+' | grep -oE 'https?://[^"'"'"' )]+'`), new
+   analytics, tracing, crash-reporting or update SDKs, new defaults that switch something on,
+   new background checks. Neutralise each one (config first, a small patch second) before the
+   build ships.
+3. **Run the guard** `node fork/scripts/check-telemetry.mjs`. A failure is a finding to resolve,
+   never something to `--update` away without reading it.
+4. **Check every built artifact**, not only the source: the Linux runtime and the iOS app must not
+   contain `ingest.t3.codes`, a PostHog key, Axiom, `u.expo.dev` or upstream's release source
+   (`pingdotgg/t3code/releases`), and must contain our update source.
+5. **Walk every wish** in the overview table of the status doc and confirm it still holds on the
+   new base (privacy, Tailscale only, own push, own Apple identity, and each fixed bug).
+6. **Re-evaluate every carried patch.** If upstream now fixes a bug or ships a feature we carry,
+   test whether their version meets our goal. If it does, drop our patch and use theirs. If it
+   only partly does, keep what is missing and note why. Never keep two versions of one feature.
+7. **Follow up upstream**: PRs merged or closed, Ideas answered. Drop merged patches, record the rest.
+8. **Data continuity**: list new database migrations in the diff (they must only move forward),
+   back up `~/.t3/userdata`, and switch through `fork/scripts/install-runtime.sh`.
 
 ## Rules that always hold
 
