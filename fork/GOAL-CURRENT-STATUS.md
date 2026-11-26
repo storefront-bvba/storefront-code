@@ -28,9 +28,9 @@ upstream would take it.
 
 | # | Wish | State | Route | Size | Upstream |
 | --- | --- | --- | --- | --- | --- |
-| B1 | Live Activity tap opens the right thread | Open: cause found in code, not reproduced | Upstream PR (fix); order change in fork | S | Good for the fix |
-| B2 | Selecting text to the left closes the panel | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
-| B3 | Bottom menu bar stays visible in a thread | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
+| B1 | Live Activity tap opens the right thread | Fixed on `storefront-ios-bugs` (reproduced and verified in the simulator); push path waits for F5 | Upstream PR (fix); order change in fork | S | Good for the fix |
+| B2 | Selecting text to the left closes the panel | Fixed on `storefront-ios-bugs` (page slide reproduced and fixed in the simulator); finger check on the iPhone open | Upstream PR | S | Good |
+| B3 | Bottom menu bar stays visible in a thread | Fixed on `storefront-ios-bugs` (reproduced and verified in the simulator) | Upstream PR | S | Good |
 | F1 | No telemetry or tracking | Fork patch and guard done; Omarchy host still runs official builds with opt-outs | Config + small patch + guard | S | No (on by default upstream) |
 | F2 | 2-step voice input (Deepgram) | Not started | Own endpoint option (Idea #32516, fork meanwhile) + own Deepgram service; live words in fork | M–L | No for now (closed #32530) |
 | F3 | Subagent model and effort visible | Mostly exists; gap for Claude Code's own subagents | Try as bug-fix PR | M | Doubtful to good |
@@ -54,41 +54,67 @@ upstream would take it.
 
 ### B1: Live Activity tap
 
-- Each Live Activity row already carries a thread deep link (`/threads/<env>/<thread>`): the widget
-  turns the chosen row into a `t3code://` URL (`apps/mobile/src/widgets/AgentActivity.tsx`:178-183,
-  271) and the app opens it (`apps/mobile/src/App.tsx`:141-166).
-- Likely cause: when the app starts a Live Activity itself, the row's deep link is `"/"`
-  (`apps/mobile/src/features/agent-awareness/remoteRegistration.ts`:545). That becomes a bare
-  `t3code://`, which the app's link filter drops on purpose (`apps/mobile/src/lib/appLinking.ts`:15),
-  so a tap does nothing until a relay push replaces the row.
-- Today's order of choice: approval/input, failed, running, done. "Done before running" is a
-  behaviour change, so fork-only (`AgentActivity.tsx`:178, and `AgentActivityWidget.tsx`:103 for the
-  home-screen widget).
+- Fixed on branch `storefront-ios-bugs` (2026-11-26), two commits: the link fix (for upstream) and
+  the tap order (fork only). Evidence in `~/.local/share/storefront-code/evidence/B1/` (README there).
+- Cause (confirmed in the simulator): a Live Activity the app starts itself, after you send a
+  message, had a row without a thread and the deep link `"/"`. The widget turns that into a bare
+  `t3code://`, which the link filter drops on purpose (`apps/mobile/src/lib/appLinking.ts`:15), so a
+  tap brought the app forward where it was until a relay push replaced the row.
+- Fix: the composer passes the thread (`apps/mobile/src/features/threads/ThreadComposer.tsx`:589)
+  and the row links to `/threads/<env>/<thread>`
+  (`apps/mobile/src/features/agent-awareness/remoteRegistration.ts`:498-546). Test in
+  `remoteRegistration.test.ts`. Files changed 9 and 41 times upstream in 30 days.
+- Fork-only order: a tap opens a thread waiting for approval or input, else a failed or done one,
+  else a running one (`apps/mobile/src/widgets/AgentActivity.tsx`:179 and
+  `AgentActivityWidget.tsx`:103; 3 and 2 commits in 30 days). The rows keep their order on screen.
+  Test in `src/widgets/agentActivityTapTarget.storefront.test.ts` (new file).
+- The app starts Live Activities only with T3 Connect signed in; the simulator test bypassed those
+  checks in a patch that was not committed.
+- Open: a real iPhone with real pushes (needs F5), and the home-screen widget tap (unit-tested
+  only).
 - Related upstream: #18997 (Dynamic Island, fixed in #19022), #26544 (open: an approval notification
   does not open its thread).
 
 ### B2: text selection closes the panel
 
-- Likely cause: the iOS 26 full-screen swipe-back gesture, which only checks stack depth
-  (react-native-screens fork, `RNSStackNavigationController.mm`:29-45, 101-107, vendored in
-  `apps/mobile/deps/react-native-screens-5.0.0-t3.63.tgz`). The composer does not stop it
-  (`apps/mobile/modules/t3-composer-editor/ios/T3ComposerEditorView.swift`:598-601, 657-667).
-- Caveat: that gesture starts on a left-to-right drag, the opposite of what we see. Reproduce on the
-  device first.
-- Fix in the composer's Swift module (not in the vendored screens tarball, which cannot be patched
-  with pnpm): no back gesture while the text view has focus or a selection.
+- Fixed on branch `storefront-ios-bugs` (2026-11-26). Evidence in
+  `~/.local/share/storefront-code/evidence/B2/`.
+- Cause (reproduced in the simulator): iOS 26's full-screen back gesture starts on a rightward drag
+  anywhere on the page, also inside the focused composer, so the thread page slides away under
+  the finger. The selection handles themselves worked in both directions in the simulator.
+- Fix: a pan recognizer on the composer's text view
+  (`apps/mobile/modules/t3-composer-editor/ios/T3ComposerEditorView.swift`:76-107, 637; 13 commits
+  in 30 days). While the editor has focus, the stack's back gestures wait for it to fail; an
+  unfocused composer, the message list and the screen edge still go back (checked). The vendored
+  screens tarball is untouched.
+- Open: the gesture as described in the bug (selecting to the left) with a real finger on the
+  iPhone; the simulator can only drag, not long-press and then drag.
 
 ### B3: bottom menu bar in a thread
 
-- The bar hides when a thread is pushed, the home list is not showing and the window is not split
-  (`apps/mobile/src/features/layout/createWorkspaceStackNavigator.ios.tsx`:522-529). "Home list
-  showing" comes from native appear/disappear events (`apps/mobile/src/native/createV5StackNavigator.ios.tsx`:179-181,
-  218-219) and only resets when the top thread changes (`createWorkspaceStackNavigator.ios.tsx`:497-503).
-- Likely cause: a deep link replaces the stack while a menu is open over Home; the overlay's
-  dismissal fires the root's "will appear" event after the push, and reopening the same thread keeps
-  its route key, so the reset never runs.
-- Fix: derive visibility from the router state instead of the last native event. Upstream fixed a
-  sibling bug themselves (#36975).
+- Fixed on branch `storefront-ios-bugs` (2026-11-26). Evidence in
+  `~/.local/share/storefront-code/evidence/B3/`.
+- Cause (confirmed in the simulator with logging): when the app opens straight into a thread (a
+  Live Activity or notification tap after iOS ended the app, or restoring the last thread), the
+  hidden tabs prewarm their headers (`apps/mobile/src/features/layout/workspace/WorkspaceNativeTabs.ios.tsx`:70, 118);
+  UIKit then lays out their root screens, and each root's "will appear" set the shared
+  "primary visible" flag while the shown tab had a thread on top. The dock then covers the
+  composer. Warm links (from Home, another tab, an open menu, the background) did not reproduce.
+- Fix: only the shown tab's stack reports root visibility
+  (`apps/mobile/src/features/layout/createWorkspaceStackNavigator.ios.tsx`:590; 25 commits in 30
+  days). No unit test: the fix is callback wiring in a native view; before/after captures are the
+  proof.
+- Upstream fixed a sibling bug themselves (#36975).
+
+### Testing the app in the simulator
+
+- `vp run mobile:install` assumes upstream's bundle ID and workspace name; build the development
+  client on the Mac with `expo prebuild` and `xcodebuild` for `generic/platform=iOS Simulator`
+  (workspace `ios/StorefrontCodeDev.xcworkspace`), install it, and run Metro on the Mac.
+- Use a throwaway server (`t3 serve --base-dir ~/.local/share/storefront-code/dev-home --port 3790
+  --lan`) and pair through its Tailscale address; this PC's firewall blocks the LAN address.
+- A deep link given to the development client at a cold start is handed to the app again on every
+  activation. Restart the simulator after such a test, or it skews later tests.
 
 ### F1: telemetry
 
@@ -243,7 +269,7 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
 | Deepgram as provider (F2) | Existing Idea [#36900](https://github.com/pingdotgg/t3code/discussions/36900) | Covered by #32516 for us |
 | Usage indicator in a thread (F4) | Existing Ideas [#40926](https://github.com/pingdotgg/t3code/discussions/40926), [#41449](https://github.com/pingdotgg/t3code/discussions/41449) | Upvote #40926 and add the mobile case (draft for Wouter) |
 | % used / % remaining (N2) | Existing Ideas [#32499](https://github.com/pingdotgg/t3code/discussions/32499) (15 upvotes), [#30076](https://github.com/pingdotgg/t3code/discussions/30076) | Upvote #32499 |
-| B1, B2, B3 | PRs (3 = the open-PR limit) | After reproducing on our own build |
+| B1, B2, B3 | PRs (3 = the open-PR limit) | Ready: reproduced and fixed on our build (branch `storefront-ios-bugs`); each fix applies cleanly on upstream `main`; evidence in `~/.local/share/storefront-code/evidence/` |
 
 Upstream's stance on outside provider work (2026-11-12, Theo closing
 [#32530](https://github.com/pingdotgg/t3code/pull/32530), a custom OpenAI-compatible speech provider
