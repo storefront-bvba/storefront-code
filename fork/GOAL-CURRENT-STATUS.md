@@ -19,9 +19,9 @@ upstream would take it.
 | B2 | Selecting text to the left closes the panel | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
 | B3 | Bottom menu bar stays visible in a thread | Open: likely cause found, not reproduced | Upstream PR | S–M | Good |
 | F1 | No telemetry or tracking | Opt-outs set on the Omarchy host; fork patch and guard test still to do | Config + small patch + guard test | S | No (on by default upstream) |
-| F2 | 2-step voice input (Deepgram) | Not started | Own endpoint option (Ideas first, fork meanwhile) + own Deepgram service; live words in fork | M–L | Doubtful (feature) |
+| F2 | 2-step voice input (Deepgram) | Not started | Own endpoint option (Idea #32516, fork meanwhile) + own Deepgram service; live words in fork | M–L | No for now (closed #32530) |
 | F3 | Subagent model and effort visible | Mostly exists; gap for Claude Code's own subagents | Try as bug-fix PR | M | Doubtful to good |
-| F4 | Usage indicator in a thread | Not started; data already in the app | Ideas first, fork meanwhile | S–M | Doubtful (feature) |
+| F4 | Usage indicator in a thread | Not started; data already in the app | Idea #40926, fork meanwhile | S–M | Doubtful (feature) |
 | F5 | Only Tailscale or LAN, no T3 Connect | Pairing over Tailscale works today; push needs Connect | Fork: host sends push itself | L | No (new connection method) |
 | F6 | Own Apple account, TestFlight | Not started | Fork: `app.config.ts`, `eas.json` | S | No |
 | F7 | Full end-to-end encryption | Decided: nothing to build | Follows from F5 and push design | – | – |
@@ -110,9 +110,10 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
 - Cleanup and "send after dictation" exist on web only (`apps/web/src/speech/voiceInputSession.ts`:194-230).
 - Deepgram is not supported anywhere.
 - Plan: (1) an "own endpoint (OpenAI-compatible)" transcription option, with our own service on the
-  host that calls Deepgram and returns cleaned-up text; posted as an Idea first, carried in the fork
-  meanwhile (`CloudSpeech.ts` changed twice in 30 days). (2) Live words: a streaming path from the
-  phone through the host to Deepgram, fork-only.
+  host that calls Deepgram and returns cleaned-up text; supported upstream in Idea #32516, carried in
+  the fork meanwhile, starting from closed PR #32530 plus the mobile destination
+  (`CloudSpeech.ts` changed twice in 30 days). (2) Live words: a streaming path from the phone
+  through the host to Deepgram, fork-only.
 
 ### F3: subagent model and effort
 
@@ -168,9 +169,19 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
 
 | Item | Kind | State |
 | --- | --- | --- |
-| Own transcription endpoint (F2) | Ideas discussion | To draft, show Wouter before posting |
-| Usage indicator in a mobile thread (F4) | Ideas discussion | To draft, show Wouter before posting |
+| Own transcription endpoint (F2) | Existing Idea [#32516](https://github.com/pingdotgg/t3code/discussions/32516) (16 upvotes, many +1s, no maintainer reply) | Upvote and add our case (draft for Wouter) |
+| Deepgram as provider (F2) | Existing Idea [#36900](https://github.com/pingdotgg/t3code/discussions/36900) | Covered by #32516 for us |
+| Usage indicator in a thread (F4) | Existing Ideas [#40926](https://github.com/pingdotgg/t3code/discussions/40926), [#41449](https://github.com/pingdotgg/t3code/discussions/41449) | Upvote #40926 and add the mobile case (draft for Wouter) |
+| % used / % remaining (N2) | Existing Ideas [#32499](https://github.com/pingdotgg/t3code/discussions/32499) (15 upvotes), [#30076](https://github.com/pingdotgg/t3code/discussions/30076) | Upvote #32499 |
 | B1, B2, B3 | PRs (3 = the open-PR limit) | After reproducing on our own build |
+
+Upstream's stance on outside provider work (2026-11-12, Theo closing
+[#32530](https://github.com/pingdotgg/t3code/pull/32530), a custom OpenAI-compatible speech provider
+that a collaborator had already fixed up): "We are not expanding provider support through outside
+PRs right now. This includes presets, ACP flavors, speech providers and usage integrations." So F2
+stays in the fork until a maintainer approves the scope. #32530 (MIT) is a good starting point for
+our patch: it is close to what upstream would accept, but it hides the option on mobile, which we
+need.
 
 ## Sync log
 
@@ -187,4 +198,4 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
 | 2026-11-26 | Keep T3 Connect until our own push works. |
 | 2026-11-26 | No separate E2E work; the home LAN is trusted. |
 | 2026-11-26 | Dropped: monospaced font option, environment cue per thread. |
-| 2026-11-26 | Feature ideas go to upstream's Ideas discussions first. |
+| 2026-11-26 | Feature ideas go to upstream's Ideas discussions first; where an Idea already exists, we upvote it and add our case instead of opening a new one. |
