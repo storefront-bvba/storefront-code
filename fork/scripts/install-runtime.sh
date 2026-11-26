@@ -6,10 +6,12 @@
 #
 # T3 only trusts runtimes it downloads and checks itself (SHA256SUMS), and it removes anything else
 # it finds in <T3 home>/runtime/versions. So this script hands the archive to T3's own installer:
+# 0. Stops if the new runtime refuses /etc/t3code/policy.json (a server refuses to start on one).
 # 1. Serves the archive and its SHA256SUMS as a release on 127.0.0.1 (T3CODE_RELEASE_BASE_URL).
 # 2. Waits until no thread has an active run (a restart would cut it off).
-# 3. Backs up the databases (SQLite online backup, consistent while the server runs) and the
-#    small config files to <T3 home>/backups/<timestamp>-before-<version>.
+# 3. Backs up the databases (SQLite online backup, consistent while the server runs), the small
+#    config files, secrets/ (signing keys: without them every device pairs again) and attachments/
+#    to <T3 home>/backups/<timestamp>-before-<version>.
 # 4. Runs the new `t3 service install`: it downloads and verifies the runtime from that local
 #    release, then the running launcher snapshots SQLite, starts the new runtime as a trial and
 #    rolls back if it does not come up.
@@ -42,6 +44,12 @@ CLI="$work/$name/t3"
 reported=$("$CLI" --version 2>&1 | tail -1)
 log "new runtime reports: $reported"
 case "$reported" in *"$VERSION"*) ;; *) log "version mismatch, stopping"; exit 1 ;; esac
+
+POLICY=/etc/t3code/policy.json
+if [ -e "$POLICY" ]; then
+	log "checking $POLICY with the new runtime"
+	"$CLI" policy check "$POLICY" 2>&1 | tee -a "$LOG" || { log "the new runtime refuses $POLICY, stopping"; exit 1; }
+fi
 
 # A local release laid out like GitHub's: <base>/v<version>/<file> and SHA256SUMS.
 mkdir -p "$work/release/v$VERSION"
@@ -77,6 +85,15 @@ for f in settings.json keybindings.json environment-id anonymous-id server-runti
 	[ -e "$T3_HOME/userdata/$f" ] && cp -p "$T3_HOME/userdata/$f" "$BACKUP/"
 done
 cp -p "$T3_HOME/service.env" "$BACKUP/"
+# Short-lived DPoP proofs and Connect mint and health files are left out; reflinks keep it cheap.
+if [ -d "$T3_HOME/userdata/secrets" ]; then
+	mkdir -m 700 "$BACKUP/secrets"
+	find "$T3_HOME/userdata/secrets" -mindepth 1 -maxdepth 1 ! -name 'dpop-proof-*' ! -name 'cloud-mint-*' \
+		! -name 'cloud-health-*' -exec cp -a --reflink=auto -t "$BACKUP/secrets" {} +
+	key=server-signing-key.bin
+	[ ! -e "$T3_HOME/userdata/secrets/$key" ] || [ -e "$BACKUP/secrets/$key" ] || { log "backup lacks $key"; exit 1; }
+fi
+[ -d "$T3_HOME/userdata/attachments" ] && cp -a --reflink=auto "$T3_HOME/userdata/attachments" "$BACKUP/"
 threads_before=$(sqlite3 "file:$DB?mode=ro" "select count(*) from orchestration_v2_projection_threads")
 log "backup in $BACKUP ($(du -sh "$BACKUP" | cut -f1)), threads: $threads_before"
 
