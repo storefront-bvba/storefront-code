@@ -1,0 +1,40 @@
+{
+  "sources": {
+    "apps/mobile/app.config.ts": {
+      "axiom": 1,
+      "expo-updates-host": 1
+    },
+    "apps/mobile/src/components/RenderErrorBoundary.tsx": {
+      "expo-observe": 1
+    },
+    "apps/mobile/src/features/observability/observe.ts": {
+      "expo-observe": 2
+    },
+    "apps/mobile/src/features/pull-requests/botBadgeImages.ts": {
+      "other-vendor": 1
+    },
+    "apps/mobile/src/features/voice-input/voiceInputMetering.ts": {
+      "other-vendor": 2
+    },
+    "apps/server/src/telemetry/AnalyticsService.ts": {
+      "posthog": 5
+    },
+    "apps/web/src/components/settings/ScheduledTasksSettings.tsx": {
+      "sentry": 1
+    },
+    "packages/contracts/src/relay.ts": {
+      "expo-observe": 2
+    },
+    "packages/issue-tracker-linear/src/server/LinearApi.graphql.ts": {
+      "sentry": 1
+    },
+    "packages/shared/src/relayTracing.ts": {
+      "axiom": 1
+    }
+  },
+  "dependencies": {
+    "apps/mobile/package.json": [
+      "expo-observe"
+    ]
+  }
+}
