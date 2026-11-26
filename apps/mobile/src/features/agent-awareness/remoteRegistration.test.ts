@@ -34,10 +34,12 @@ import {
 } from "../../persistence/mobile-preferences";
 import { MobileSecureStorageError } from "../../persistence/mobile-secure-storage";
 import * as MobileStorage from "../../persistence/mobile-storage";
+import type { AgentActivityProps } from "../../widgets/AgentActivity";
 import { makeRelayDeviceRegistrationRequest } from "./registrationPayload";
 import {
   __resetAgentAwarenessRemoteRegistrationForTest,
   agentAwarenessNotificationsReady,
+  armAgentAwarenessLiveActivityForLocalWork,
   getAgentAwarenessRegistrationStatus,
   refreshActiveLiveActivityRemoteRegistration,
   refreshAgentAwarenessRegistration,
@@ -548,6 +550,32 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       ]);
       expect(activity.end).not.toHaveBeenCalled();
       expect(widgetMocks.start).not.toHaveBeenCalled();
+    }).pipe(
+      Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch),
+      Effect.provide(layerRelayTest),
+    );
+  });
+
+  it.effect("links the Live Activity started for local work to its thread", () => {
+    setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk-token-user-a"));
+    vi.mocked(loadPreferences).mockResolvedValue({ liveActivitiesEnabled: true });
+    widgetMocks.start.mockReturnValueOnce(null as never);
+
+    return Effect.gen(function* () {
+      yield* runBackgroundOperations();
+      armAgentAwarenessLiveActivityForLocalWork({
+        environmentId: "env 1" as EnvironmentId,
+        threadId: "thread-1" as ThreadId,
+        threadTitle: "Fix login",
+        projectTitle: "Shop",
+      });
+      yield* runBackgroundOperations();
+
+      expect(widgetMocks.start).toHaveBeenCalledOnce();
+      const [props] = widgetMocks.start.mock.calls[0] as unknown as [AgentActivityProps];
+      expect(props.activities).toMatchObject([
+        { environmentId: "env 1", threadId: "thread-1", deepLink: "/threads/env%201/thread-1" },
+      ]);
     }).pipe(
       Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch),
       Effect.provide(layerRelayTest),
