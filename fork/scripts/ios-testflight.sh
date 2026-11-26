@@ -49,6 +49,9 @@ AUTH=(-allowProvisioningUpdates
 	-authenticationKeyID "$ASC_KEY_ID"
 	-authenticationKeyIssuerID "$ASC_ISSUER_ID")
 mkdir -p "$OUT"
+# A release bundle starts from an empty Metro cache: its cache key does not cover our Babel plugin
+# (apps/mobile/storefront-names.babel.cjs), so a cached transform could keep upstream's names.
+rm -rf "${TMPDIR:-/tmp}"/metro-* "${TMPDIR:-/tmp}"/haste-map-*
 
 # Xcode requests a profile per target in parallel, and the API sometimes rejects some of those
 # requests ("Authentication failed"). Profiles that did arrive are cached, so a retry gets further.
@@ -63,6 +66,12 @@ for attempt in 1 2 3; do
 	grep -q 'Authentication failed' "$OUT/archive.log" || break
 done
 [ -d "$OUT/$SCHEME.xcarchive" ] || { echo "archive failed, see $OUT/archive.log" >&2; exit 1; }
+
+# Our names in the built app (fork/GOAL.md, "Our own identity"): the home-screen name, and how
+# often upstream's product name is left in the JavaScript bundle (expected: 0).
+APP=$(ls -d "$OUT/$SCHEME.xcarchive/Products/Applications/"*.app | head -1)
+echo "== names: home screen \"$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP/Info.plist")\"," \
+	"\"T3 Code\" in the bundle: $(LC_ALL=C grep -a -o 'T3 Code' "$APP/main.jsbundle" | wc -l | tr -d ' ')"
 
 DESTINATION=export
 [ "$UPLOAD" = 1 ] && DESTINATION=upload
