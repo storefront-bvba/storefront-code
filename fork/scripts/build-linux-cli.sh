@@ -32,6 +32,7 @@ GIT_COMMON=$(realpath "$(git rev-parse --git-common-dir)")
 echo "== Storefront Code $VERSION for linux-x64 from $(git rev-parse --short HEAD) (node $NODE_VERSION, pnpm $PNPM_VERSION)"
 [ -z "$(git status --porcelain --untracked-files=no)" ] || echo "note: uncommitted changes are not part of this build"
 
+# The container script is one single-quoted argument: no single quote may appear inside it.
 docker run --rm --name "${CONTAINER_NAME:-storefront-code-build-$$}" \
 	-e VERSION="$VERSION" -e NODE_VERSION="$NODE_VERSION" -e PNPM_VERSION="$PNPM_VERSION" \
 	-e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
@@ -71,7 +72,7 @@ echo "== typecheck and tests"
 fork/scripts/check-build.sh
 echo "== web client and server"
 pnpm exec vp run --filter t3 build
-# The server build puts T3's development icons into dist/client; upstream's release replaces them
+# The server build puts the T3 development icons into dist/client; the upstream release replaces them
 # with its brand, we put back our own from apps/web/public.
 for icon in favicon.ico favicon-16x16.png favicon-32x32.png apple-touch-icon.png icon-192x192.png icon-512x512.png; do
 	cp "apps/web/public/$icon" "apps/server/dist/client/$icon"
