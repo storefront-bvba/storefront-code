@@ -149,7 +149,16 @@ function LocalSettingsRouteScreen() {
   const { savedConnectionsById } = useSavedRemoteConnections();
   return (
     <SettingsList
-      connections={[environmentsRow(gt("Environments"), Object.keys(savedConnectionsById).length)]}
+      connections={[
+        environmentsRow(gt("Environments"), Object.keys(savedConnectionsById).length),
+        // Storefront Code (fork): without T3 Connect the paired hosts send push themselves.
+        {
+          id: "SettingsNotifications",
+          icon: "bell.badge",
+          label: gt("Notifications"),
+          target: "SettingsNotifications",
+        },
+      ]}
     />
   );
 }
