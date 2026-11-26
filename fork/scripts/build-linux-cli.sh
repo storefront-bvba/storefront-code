@@ -50,11 +50,12 @@ curl -fsSL https://sh.rustup.rs | sh -s -- -y -q --profile minimal --default-too
 git config --global --add safe.directory "*"
 git clone -q --no-hardlinks /repo /build
 cd /build
+echo "== install"
+pnpm install --frozen-lockfile >/tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
 echo "== versions"
 node scripts/update-release-package-versions.ts "$VERSION"
 pnpm install --lockfile-only --ignore-scripts >/dev/null
-echo "== install"
-pnpm install --frozen-lockfile >/tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
+pnpm install --frozen-lockfile >>/tmp/install.log 2>&1 || { tail -40 /tmp/install.log; exit 1; }
 echo "== web client and server"
 pnpm exec vp run --filter t3 build
 echo "== single executable"
