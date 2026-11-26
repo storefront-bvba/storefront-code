@@ -159,8 +159,7 @@ modelled on pseudoseed/t3code_dev's `scripts/no-upstream-telemetry.test.ts` (MIT
 - APNs key (2026-11-26): "Storefront Code Push", Key ID `R2MGM4T6A5`, Sandbox & Production, team
   scoped. On the Omarchy host in `~/.t3/storefront/AuthKey_R2MGM4T6A5.p8` (mode 600, outside the
   repo); a backup copy is in Wouter's password manager.
-- Payloads: IDs, phase and counts only. Live Activity pushes cannot be decrypted on the device, so
-  titles come from what the app caches in its App Group.
+- Payloads: the same fields as upstream (decision 2026-11-26), so alerts and Live Activities look as before.
 
 ### F6: own Apple account
 
@@ -269,6 +268,7 @@ need.
 | 2026-11-26 | Fork upstream directly. Not m3code (huge diff, CI never runs, renumbered migrations) or pseudoseed/t3code_dev (one maintainer, keeps Clerk). |
 | 2026-11-26 | Name: Storefront Code. |
 | 2026-11-26 | Keep T3 Connect until our own push works. |
+| 2026-11-26 | Notifications and Live Activities look exactly as before: same fields as upstream's payloads (titles, model, phase, status); Apple sees them in transit. |
 | 2026-11-26 | No separate E2E work; the home LAN is trusted. |
 | 2026-11-26 | Dropped: monospaced font option, environment cue per thread. |
 | 2026-11-26 | Web UI branding kept minimal: only the SVG behind `T3Wordmark` and the web icons change, so the sidebar reads "S Code". |

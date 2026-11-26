@@ -86,8 +86,12 @@ Before switching any machine to a new build, and recorded in the sync log of
 - **Zero telemetry.** No product analytics, tracing, crash reporting or install IDs leave our
   machines. A guard test fails the build when a sync brings any of it back.
 - **No third party in the data path.** Devices reach hosts over Tailscale (or the trusted LAN at
-  home). No T3 Connect, no Clerk, no relay. Push notifications go from our own host to Apple and
-  carry IDs and status only, never thread content.
+  home). No T3 Connect, no Clerk, no relay. Push notifications go from our own host straight to
+  Apple.
+  - *2026-11-26:* notifications and Live Activities look exactly as they did with upstream, so
+    they carry the same fields: project and thread titles, model, phase and status. Apple's push
+    service sees those in transit, as it did before. Prompts, replies and file contents never go
+    into a push.
 - **No secrets in this repository.** It is public (a GitHub fork of a public repository). Apple
   keys, API keys and tokens stay out of git.
 - **Our own identity.** App name "Storefront Code", our own icon, bundle IDs, App Group, URL scheme
