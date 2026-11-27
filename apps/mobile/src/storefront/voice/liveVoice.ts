@@ -29,27 +29,48 @@ type Feed = (pcm: Float32Array) => void;
 /** Microphone audio of the current recording, held until the live stream has connected. */
 export const livePcm = (() => {
   let open = false;
+  let held = false;
+  let overflowed = false;
   let feed: Feed | null = null;
   let queued: Float32Array[] = [];
   let queuedSamples = 0;
   let heard = 0;
+  const reset = () => {
+    open = true;
+    overflowed = false;
+    feed = null;
+    queued = [];
+    queuedSamples = 0;
+    heard = 0;
+  };
   return {
     begin() {
-      open = true;
-      feed = null;
-      queued = [];
-      queuedSamples = 0;
-      heard = 0;
+      // A recording that waited for its environment to wake keeps what it held so far.
+      if (held) {
+        held = false;
+        return;
+      }
+      reset();
+    },
+    /** Starts holding audio for a live stream that can only open once the environment wakes. */
+    hold() {
+      reset();
+      held = true;
     },
     /** Samples of this recording that can stream; none means the recorder only writes a file. */
     heard: () => heard,
+    /** Audio was dropped while waiting, so only the recording file has all of it. */
+    overflowed: () => overflowed,
     push(samples: Int16Array, sampleRate: number) {
       if (!open || sampleRate !== SAMPLE_RATE) return;
       heard += samples.length;
       const pcm = new Float32Array(samples.length);
       for (let index = 0; index < samples.length; index++) pcm[index] = samples[index]! / 32768;
       if (feed) return feed(pcm);
-      if (queuedSamples + pcm.length > MAX_QUEUED_SAMPLES) return;
+      if (queuedSamples + pcm.length > MAX_QUEUED_SAMPLES) {
+        overflowed = true;
+        return;
+      }
       queued.push(pcm);
       queuedSamples += pcm.length;
     },
@@ -62,6 +83,7 @@ export const livePcm = (() => {
     },
     end() {
       open = false;
+      held = false;
       feed = null;
       queued = [];
       queuedSamples = 0;
@@ -145,7 +167,8 @@ export function withLiveStream(
         async transcribe(uri, transcription) {
           const stream = await live;
           try {
-            if (stream && livePcm.heard() > 0) return await stream.finish();
+            if (stream && livePcm.heard() > 0 && !livePcm.overflowed())
+              return await stream.finish();
             stream?.cancel();
           } catch (error) {
             throwIfVoiceTranscriptionAborted(transcription.signal);

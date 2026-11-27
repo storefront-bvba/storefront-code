@@ -98,6 +98,14 @@ Design of 2026-11-27 (base upstream v0.1.12), approved by Wouter on 2026-11-27. 
   queued message and no connection it asks the relay to wake it (at most once a minute) and
   retries the connection every 10 s (`environmentCatalog.retryNow`), until the message is out.
   Attachments that must be uploaded first still wait for a connection, as upstream has it.
+- **Waking for dictation:** dictating to a sleeping environment the relay can wake starts
+  recording at once (`apps/mobile/src/storefront/voice/wakingVoice.ts`, mounted in
+  `voiceDestination.ts` and `VoiceInputProvider.tsx`). The dictation row says "Waking Omarchy… keep
+  talking"; the phone holds up to 60 s of audio for the live stream that opens once the environment
+  answers, and the recording file covers the rest. Stopped before it woke, the row says "Waiting
+  for Omarchy to wake…" and the recording is transcribed once it is awake (up to 3 minutes).
+  Upstream cancels a recording when its route changes; the environment it waits for waking up no
+  longer does.
 - Better detection: when a host does not answer, the app asks the relay first and shows "Asleep ·
   Wake up" instead of a connection error; after Wake up it shows "Waking…" until the host answers.
 - Web: Settings → Sleep & wake with the same cards. Web is served by a host, so it shows the

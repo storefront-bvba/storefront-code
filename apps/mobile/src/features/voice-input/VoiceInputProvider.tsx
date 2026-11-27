@@ -21,6 +21,7 @@ import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/prefer
 import { getNativeShowcaseScene } from "../showcase/nativeShowcaseScene";
 import { createLiveVoiceRecorder } from "../../storefront/voice/liveVoiceRecorder";
 import { environmentTranscriptCleanup } from "../../storefront/voice/transcriptCleanup";
+import { keepsRecordingOnRouteChange } from "../../storefront/voice/wakingVoice";
 import {
   voiceInputBlocksSubmission,
   type VoiceTranscriber,
@@ -167,7 +168,12 @@ export const voiceInputAtom = Atom.make((get) => {
     publishAudioLevels: (levels) => audioLevels.set(levels),
     keepAwake: () => keepScreenAwake(`voice-input:${++keepAwakeSequence}`),
   });
-  get.subscribe(voiceRouteAtom, () => session.controller.cancel());
+  let previousRoute = registry.get(voiceRouteAtom);
+  get.subscribe(voiceRouteAtom, (route) => {
+    const keep = keepsRecordingOnRouteChange(previousRoute, route);
+    previousRoute = route;
+    if (!keep) session.controller.cancel();
+  });
   get.addFinalizer(() => {
     permission.dispose();
     session.dispose();

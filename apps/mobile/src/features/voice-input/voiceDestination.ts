@@ -35,6 +35,8 @@ import { connectionAtomRuntime } from "../../connection/runtime";
 import { uuidv4 } from "../../lib/uuid";
 import { createEnvironmentTranscriber } from "./environmentTranscriber";
 import { liveEnvironment } from "../../storefront/voice/liveVoice";
+import { markVoiceRoute } from "../../storefront/voice/wakingVoice";
+import { wakingVoiceTranscriber } from "../../storefront/voice/wakingVoiceRoute";
 import { readVoiceGrant, writeVoiceGrant, type VoiceGrant } from "./voiceGrantStorage";
 
 const storedGrant = Atom.make(Effect.promise(readVoiceGrant)).pipe(Atom.keepAlive);
@@ -259,13 +261,19 @@ export const voiceRouteAtom = Atom.make((get) => {
   );
   const connection = get(connectionAtom);
   const registry = get.registry;
+  const canSendWith = (current: PreparedConnection) => () =>
+    registry.get(voiceGrantAtom) === grant && registry.get(connectionAtom) === current;
+  // Storefront Code (fork): a sleeping environment the wake relay can wake still takes dictation.
+  const waking =
+    !connection && !cloud && hasEnvironmentVoiceCapture
+      ? wakingVoiceTranscriber(get, grant.destination.environmentId, connectionAtom, (current) =>
+          environmentTranscriber(current, canSendWith(current)),
+        )
+      : null;
   return {
-    transcriber:
-      connection &&
-      environmentTranscriber(
-        connection,
-        () => registry.get(voiceGrantAtom) === grant && registry.get(connectionAtom) === connection,
-        cloud,
-      ),
+    transcriber: markVoiceRoute(
+      connection ? environmentTranscriber(connection, canSendWith(connection), cloud) : waking,
+      grant,
+    ),
   };
 });

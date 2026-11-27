@@ -18,7 +18,7 @@ import { AppText as Text } from "../../components/ui/AppText";
 import { SymbolView, type AppSymbolName } from "../../components/ui/AppSymbol";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { cn } from "../../lib/cn";
-import { LiveVoiceTranscript } from "../../storefront/voice/LiveVoiceTranscript";
+import { LiveVoiceTranscript, VoiceWakeLabel } from "../../storefront/voice/LiveVoiceTranscript";
 import type { VoiceComposerPresentation } from "./voiceInputPresentation";
 import { VOICE_WAVEFORM_SAMPLE_COUNT } from "./voiceInputMetering";
 
@@ -382,7 +382,7 @@ export function ComposerDictationStatus(props: {
         </Animated.View>
         <Animated.View className="absolute inset-0 justify-center px-2" style={labelStyle}>
           <Text className="text-center text-sm text-foreground-muted" numberOfLines={1}>
-            {props.presentation.statusLabel}
+            <VoiceWakeLabel fallback={props.presentation.statusLabel} />
           </Text>
         </Animated.View>
       </View>
