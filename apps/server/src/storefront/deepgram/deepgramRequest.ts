@@ -15,6 +15,9 @@ export type DeepgramSettings = {
   readonly languages: ReadonlyArray<string>;
 };
 
+/** Live audio as 16 kHz mono 16-bit samples, or in a container Deepgram reads itself (Ogg Opus). */
+export type DeepgramLiveAudio = "linear16" | "container";
+
 export const baseLanguage = (code: string) => code.split(/[-_]/, 1)[0]!.toLowerCase();
 
 /** The host's languages, unless the person picked one the host does not list. */
@@ -61,7 +64,7 @@ export function deepgramQuery(
   settings: DeepgramSettings,
   options: SpeechTranscriptionOptions,
   keyterms: ReadonlyArray<string>,
-  mode: "live" | "batch",
+  mode: "batch" | `live-${DeepgramLiveAudio}`,
 ) {
   const languages = deepgramLanguages(settings, options.speechLanguage);
   const query = new URLSearchParams({ model: settings.model });
@@ -71,10 +74,13 @@ export function deepgramQuery(
     for (const language of languages) query.append("language_hint", language);
   }
   query.set("smart_format", "true");
-  if (mode === "live") {
-    query.set("encoding", "linear16");
-    query.set("sample_rate", "16000");
-    query.set("channels", "1");
+  if (mode !== "batch") {
+    // A container carries its own encoding, rate and channels.
+    if (mode === "live-linear16") {
+      query.set("encoding", "linear16");
+      query.set("sample_rate", "16000");
+      query.set("channels", "1");
+    }
     query.set("interim_results", "true");
     // Deepgram's value for code-switching; it only splits finals, the person decides when to stop.
     query.set("endpointing", languages.length === 1 ? "300" : "100");

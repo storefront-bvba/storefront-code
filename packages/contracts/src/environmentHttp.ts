@@ -99,6 +99,7 @@ import {
 } from "./relay.ts";
 import { makeStorefrontPowerHttpApi } from "./storefrontPower.ts";
 import { makeStorefrontPushHttpApi } from "./storefrontPush.ts";
+import { makeStorefrontVoiceHttpApi } from "./storefrontVoice.ts";
 
 const OptionalBearerHeaders = Schema.Struct({
   authorization: Schema.optionalKey(Schema.String),
@@ -1124,6 +1125,15 @@ export class EnvironmentHttpApi extends HttpApi.make("environment")
   .add(
     makeStorefrontPowerHttpApi({
       auth: EnvironmentAuthenticatedAuth,
+      requestInvalid: EnvironmentRequestInvalidError,
+      scopeRequired: EnvironmentScopeRequiredError,
+      internal: EnvironmentInternalError,
+    }),
+  )
+  .add(
+    makeStorefrontVoiceHttpApi({
+      auth: EnvironmentAuthenticatedAuth,
+      bodyLimit: EnvironmentVoiceBodyLimit,
       requestInvalid: EnvironmentRequestInvalidError,
       scopeRequired: EnvironmentScopeRequiredError,
       internal: EnvironmentInternalError,
