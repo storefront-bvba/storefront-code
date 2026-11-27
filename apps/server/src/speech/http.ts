@@ -27,6 +27,7 @@ import {
   failEnvironmentInvalidRequest,
   requireEnvironmentScope,
 } from "../auth/http.ts";
+import * as HubCleanup from "../storefront/cleanup/HubCleanup.ts";
 import * as SpeechPostProcessing from "./postProcessing.ts";
 import * as CloudSpeech from "./CloudSpeech.ts";
 import * as SpeechService from "./SpeechService.ts";
@@ -258,4 +259,4 @@ export const speechHttpApiLayer = HttpApiBuilder.group(
         }),
       );
   }),
-).pipe(Layer.provide(bodyLimit), Layer.provide(SpeechPostProcessing.layer));
+).pipe(Layer.provide(bodyLimit), Layer.provide(HubCleanup.override(SpeechPostProcessing.layer)));
