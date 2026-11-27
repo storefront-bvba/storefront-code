@@ -168,6 +168,9 @@ function resolveThreadAwarenessPhaseV2(
     return subagentRequest.waitsForInput === true ? "waiting_for_input" : "waiting_for_approval";
   }
   switch (thread.activityRunStatus ?? thread.status) {
+    // Storefront Code (fork): a queued run is live work (LIVE_SHELL_STATUSES), so it keeps the
+    // card; projecting it to nothing ended the Live Activity when a follow-up waited to start.
+    case "queued":
     case "preparing":
     case "starting":
       return "starting";
@@ -182,7 +185,6 @@ function resolveThreadAwarenessPhaseV2(
     case "failed":
       return "failed";
     case "idle":
-    case "queued":
     case "interrupted":
     case "cancelled":
     case "rolled_back":
