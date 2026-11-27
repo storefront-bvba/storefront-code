@@ -1,6 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as Clock from "effect/Clock";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -22,7 +23,29 @@ interface Host {
   readonly suspended: Deferred.Deferred<void>;
   locked: boolean;
   canSuspend: string;
+  /** A process keeping one core busy until this is false. */
+  compiling: boolean;
 }
+
+/** The host's load as Linux would report it: idle, apart from `php` while `compiling`. */
+const fakeLoad = (host: Host) => {
+  let ticks = 0;
+  let last: number | null = null;
+  return Effect.gen(function* () {
+    const at = yield* Clock.currentTimeMillis;
+    if (last !== null && host.compiling) ticks += ((at - last) / 1000) * 100;
+    last = at;
+    return {
+      at,
+      cores: 24,
+      cpuBusy: 0,
+      cpuTotal: 0,
+      networkBytes: 0,
+      diskBytes: 0,
+      processes: new Map([["4242:1", { name: "php", ticks }]]),
+    };
+  });
+};
 
 /** Answers like the Omarchy PC: its lock helper, logind and systemd-inhibit, with nothing run. */
 const fakeSpawner = (host: Host) =>
@@ -75,6 +98,7 @@ const hostPower = Effect.fn("test.hostPower")(function* (host: Host, active: Ref
     filePath: `${tokens}/power.json`,
     environmentId: "env-omarchy",
     hasActiveRun: Ref.get(active),
+    sampleLoad: fakeLoad(host),
   }).pipe(
     Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, fakeSpawner(host)),
     Effect.provideService(HttpClient.HttpClient, fakeRelay(host)),
@@ -99,6 +123,7 @@ const newHost = (): Host => ({
   suspended: Deferred.makeUnsafe<void>(),
   locked: false,
   canSuspend: "yes",
+  compiling: false,
 });
 const suspended = (host: Host) => host.ran.filter((line) => line === "systemctl suspend").length;
 
@@ -113,23 +138,49 @@ it.effect("sleeps once the undo window passed, no run is active and the screen i
     expect(armed.relay).toEqual({ url: "https://wake.test", token: "client-token" });
 
     yield* TestClock.adjust("15 seconds");
-    expect((yield* power.status).waitingFor).toEqual(["activeRun", "screenUnlocked"]);
+    // The host must also have been quiet for five minutes, which it has not been measured for yet.
+    expect((yield* power.status).waitingFor).toEqual(["activeRun", "screenUnlocked", "busy"]);
+    expect((yield* power.status).busyWith).toBeNull();
 
     yield* Ref.set(active, false);
     host.locked = true;
     host.canSuspend = "inhibited";
     yield* TestClock.adjust("5 seconds");
-    expect((yield* power.status).waitingFor).toEqual(["inhibitor"]);
+    expect((yield* power.status).waitingFor).toEqual(["busy", "inhibitor"]);
     expect(suspended(host)).toBe(0);
 
     host.canSuspend = "yes";
-    yield* TestClock.adjust("5 seconds");
+    yield* TestClock.adjust("4 minutes");
+    expect((yield* power.status).waitingFor).toEqual(["busy"]);
+    expect(suspended(host)).toBe(0);
+    yield* TestClock.adjust("1 minute");
     yield* Deferred.await(host.suspended);
     expect(suspended(host)).toBe(1);
     expect(host.relay).toContain("/v1/hosts/env-omarchy/sleeping");
     expect((yield* power.status).sleepWhenDone.state).toBe("off");
 
     yield* TestClock.adjust("30 seconds");
+    expect(suspended(host)).toBe(1);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
+it.effect("waits for a busy process, says which, and sleeps five quiet minutes after it ends", () =>
+  Effect.gen(function* () {
+    const host = { ...newHost(), locked: true, compiling: true };
+    const power = yield* hostPower(host, yield* Ref.make(false));
+    yield* power.setSleepWhenDone(true);
+
+    yield* TestClock.adjust("10 minutes");
+    const busy = yield* power.status;
+    expect(busy.waitingFor).toEqual(["busy"]);
+    expect(busy.busyWith).toMatchObject({ kind: "process", name: "php" });
+    expect(suspended(host)).toBe(0);
+
+    host.compiling = false;
+    yield* TestClock.adjust("4 minutes");
+    expect(suspended(host)).toBe(0);
+    yield* TestClock.adjust("2 minutes");
+    yield* Deferred.await(host.suspended);
     expect(suspended(host)).toBe(1);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );

@@ -40,6 +40,14 @@ Design of 2026-11-27 (base upstream v0.1.12), approved by Wouter on 2026-11-27. 
   "sleeping" and suspends through logind (`systemctl suspend`; macOS `pmset sleepnow`). The toggle
   clears itself when the host sleeps; disarming before that is a tap. A suspend refused by an
   inhibitor (upstream's hold still in its 60 s grace) is retried on the next check.
+- **Quiet computer** (asked for on 2026-11-27, `hostLoad.ts`): it also waits until the host has
+  been quiet for 5 minutes, measured from `/proc` every 30 s while armed. Busy, averaged over that
+  window: one process (with the children it reaped, so a script of short commands counts) on half
+  a core, all processes on 2 cores, the disks at 32 MB/s, or the physical network interfaces at
+  1 MB/s. Measured on the Omarchy PC with this session running: ~1 core in total, the busiest
+  process 0.23, disks 5-10 MB/s (btrfs), network 0.2 MB/s; one sample takes ~80 ms over ~4,100
+  processes. The status names what keeps it busy (`busyWith`: "php at 98% CPU"). macOS is not
+  measured yet (no environment there).
 - **Screen locked:** on Omarchy, `omarchy-hyprland-session-locked` (it asks Hyprland for an
   ext-session-lock), tried for each live Hyprland instance because the server's own
   `HYPRLAND_INSTANCE_SIGNATURE` goes stale when Hyprland restarts. Omarchy's lock screen does not
@@ -51,8 +59,8 @@ Design of 2026-11-27 (base upstream v0.1.12), approved by Wouter on 2026-11-27. 
   `/api/storefront/push`, contract in `packages/contracts/src/storefrontPower.ts`, with the
   `orchestration:operate` scope:
   - `GET /api/storefront/power`: `{ supported, stayAwake, sleepWhenDone: { state: off | pending |
-    armed, pendingUntil }, waitingFor: [activeRun | screenUnlocked], lastError, relay: { url,
-    token } | null }`. The relay address and client token let the app reach the relay while the
+    armed, pendingUntil }, waitingFor: [activeRun | screenUnlocked | inhibitor | busy], busyWith,
+    lastError, relay: { url, token } | null }`. The relay address and client token let the app reach the relay while the
     host sleeps (the app keeps them).
   - `PUT /api/storefront/power/stay-awake` and `PUT /api/storefront/power/sleep-when-done`:
     `{ on }`, answer the new status. Sleep when done goes to `pending` for 10 s, then `armed`.

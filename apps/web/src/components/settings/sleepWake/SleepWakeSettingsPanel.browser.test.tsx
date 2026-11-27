@@ -63,6 +63,7 @@ const status = (extra: Partial<StorefrontPowerStatus> = {}): StorefrontPowerStat
   stayAwake: false,
   sleepWhenDone: OFF,
   waitingFor: [],
+  busyWith: null,
   lastError: null,
   relay: null,
   ...extra,

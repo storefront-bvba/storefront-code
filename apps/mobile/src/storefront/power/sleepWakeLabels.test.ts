@@ -8,6 +8,7 @@ const status = (patch: Partial<StorefrontPowerStatus>): StorefrontPowerStatus =>
   stayAwake: false,
   sleepWhenDone: { state: "off", pendingUntil: null },
   waitingFor: [],
+  busyWith: null,
   lastError: null,
   relay: null,
   ...patch,
@@ -34,6 +35,25 @@ describe("sleep and wake labels", () => {
       ),
     ).toBe("Sleeps when done, waiting for agents to finish and the screen to lock · tap to cancel");
     expect(sleepWhenDoneLabel(status({}), 0)).toBe("Sleep when done");
+  });
+
+  it("says what keeps the computer busy", () => {
+    const armed = { state: "armed", pendingUntil: null } as const;
+    expect(sleepWhenDoneLabel(status({ sleepWhenDone: armed, waitingFor: ["busy"] }), 0)).toBe(
+      "Sleeps when done, waiting for the computer to be quiet for 5 minutes · tap to cancel",
+    );
+    expect(
+      sleepWhenDoneLabel(
+        status({
+          sleepWhenDone: armed,
+          waitingFor: ["busy"],
+          busyWith: { kind: "process", name: "php", cores: 0.98 },
+        }),
+        0,
+      ),
+    ).toBe(
+      "Sleeps when done, waiting for the computer to be quiet for 5 minutes (php at 98% CPU) · tap to cancel",
+    );
   });
 
   it("names every relay state", () => {

@@ -50,6 +50,9 @@ describe("labels", () => {
     expect(armedDescription(["activeRun", "screenUnlocked", "inhibitor"])).toBe(
       "Waiting for agents to finish, the screen to lock and another app keeping it awake.",
     );
+    expect(
+      armedDescription(["busy"], { kind: "network", bytesPerSecond: 3.25 * 1024 * 1024 }),
+    ).toBe("Waiting for the computer to be quiet for 5 minutes (network at 3.3 MB/s).");
   });
 
   it("names relay states and why a host cannot wake", () => {

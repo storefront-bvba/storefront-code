@@ -18,8 +18,18 @@ export const StorefrontPowerWaitingFor = Schema.Literals([
   "activeRun",
   "screenUnlocked",
   "inhibitor",
+  "busy",
 ]);
 export type StorefrontPowerWaitingFor = typeof StorefrontPowerWaitingFor.Type;
+
+/** What keeps the host from being quiet: one process, all of them together, the disks or the network. */
+export const StorefrontPowerBusy = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("process"), name: Schema.String, cores: Schema.Number }),
+  Schema.Struct({ kind: Schema.Literal("cpu"), cores: Schema.Number }),
+  Schema.Struct({ kind: Schema.Literal("disk"), bytesPerSecond: Schema.Number }),
+  Schema.Struct({ kind: Schema.Literal("network"), bytesPerSecond: Schema.Number }),
+]);
+export type StorefrontPowerBusy = typeof StorefrontPowerBusy.Type;
 
 export const StorefrontSleepWhenDone = Schema.Struct({
   state: Schema.Literals(["off", "pending", "armed"]),
@@ -37,6 +47,8 @@ export const StorefrontPowerStatus = Schema.Struct({
   stayAwake: Schema.Boolean,
   sleepWhenDone: StorefrontSleepWhenDone,
   waitingFor: Schema.Array(StorefrontPowerWaitingFor),
+  /** While waiting for `busy`: what keeps it busy; null while the quiet window is still filling. */
+  busyWith: Schema.NullOr(StorefrontPowerBusy),
   lastError: Schema.NullOr(Schema.String),
   relay: Schema.NullOr(StorefrontWakeRelay),
 });

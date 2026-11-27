@@ -2,6 +2,7 @@
 // wake relay (fork/design/F8-sleep-and-wake.md). State lives in `<stateDir>/storefront/power.json`.
 import {
   SLEEP_WHEN_DONE_UNDO_SECONDS,
+  type StorefrontPowerBusy,
   type StorefrontPowerStatus,
   type StorefrontPowerWaitingFor,
   type StorefrontWakeRelay,
@@ -17,6 +18,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
@@ -31,6 +33,13 @@ import { holdWhileWanted } from "../../background/KeepAwake.ts";
 import * as ServerConfig from "../../config.ts";
 import * as ServerEnvironment from "../../environment/ServerEnvironment.ts";
 import { forkParked } from "../../serverActivation.ts";
+import {
+  busyBetween,
+  type LoadSample,
+  QUIET_WINDOW_MS,
+  SAMPLE_EVERY_MS,
+  sampleLinuxLoad,
+} from "./hostLoad.ts";
 import {
   CAN_SUSPEND_COMMAND,
   LOGIND_LOCKED_COMMAND,
@@ -67,6 +76,7 @@ export interface PowerState {
   /** When Sleep when done was armed (epoch ms); it goes off once the host suspends. */
   readonly armedAt: number | null;
   readonly waitingFor: ReadonlyArray<StorefrontPowerWaitingFor>;
+  readonly busyWith: StorefrontPowerBusy | null;
   readonly lastError: string | null;
 }
 
@@ -88,6 +98,7 @@ const powerStatus = (
           }
         : { state: "armed", pendingUntil: null },
   waitingFor: state.armedAt === null ? [] : state.waitingFor,
+  busyWith: state.armedAt === null ? null : state.busyWith,
   lastError: state.lastError,
   relay,
 });
@@ -104,6 +115,7 @@ const withSleepWhenDone = (state: PowerState, on: boolean, now: number): PowerSt
   stayAwake: on ? false : state.stayAwake,
   armedAt: on ? now : null,
   waitingFor: [],
+  busyWith: null,
   lastError: null,
 });
 
@@ -120,6 +132,8 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
   readonly filePath: string;
   readonly environmentId: string;
   readonly hasActiveRun: Effect.Effect<boolean>;
+  /** One measurement of how busy the host is; null where that is not measured (not Linux). */
+  readonly sampleLoad?: Effect.Effect<LoadSample | null>;
 }) {
   const { filePath, environmentId, hasActiveRun } = input;
   const platform = yield* HostProcess.Platform;
@@ -139,6 +153,7 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
     stayAwake: stored?.stayAwake ?? false,
     armedAt: stored?.sleepWhenDoneArmedAt ?? null,
     waitingFor: [],
+    busyWith: null,
     lastError: null,
   });
   const lock = yield* Semaphore.make(1);
@@ -249,15 +264,46 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
 
   const suspend = suspendCommand(platform);
 
+  // Measured only while Sleep when done is on: the host must have been quiet for the whole window.
+  const sampleLoad =
+    input.sampleLoad ??
+    (platform === "linux"
+      ? sampleLinuxLoad().pipe(Effect.provideService(FileSystem.FileSystem, fs))
+      : Effect.succeed(null));
+  const samples = yield* Ref.make<ReadonlyArray<LoadSample>>([]);
+  const quietCheck = Effect.gen(function* () {
+    const now = yield* Clock.currentTimeMillis;
+    const kept = yield* Ref.get(samples);
+    const last = kept.at(-1);
+    let next = kept;
+    if (last === undefined || now - last.at >= SAMPLE_EVERY_MS) {
+      const sample = yield* sampleLoad;
+      if (sample === null) return { measured: false, busy: null } as const;
+      next = [...kept, sample];
+    }
+    // Keep one sample from before the window, the start it is measured from.
+    while (next.length > 1 && next[1]!.at <= now - QUIET_WINDOW_MS) next = next.slice(1);
+    yield* Ref.set(samples, next);
+    const first = next[0]!;
+    const busy = next.length > 1 ? busyBetween(first, next.at(-1)!) : null;
+    return { measured: true, busy, filled: first.at <= now - QUIET_WINDOW_MS } as const;
+  });
+
   const checkSleep = Effect.gen(function* () {
     const state = yield* SubscriptionRef.get(ref);
     const armedAt = state.armedAt;
-    if (armedAt === null || suspend === undefined) return;
+    if (armedAt === null || suspend === undefined) {
+      yield* Ref.set(samples, []);
+      return;
+    }
+    const quiet = yield* quietCheck;
     if ((yield* Clock.currentTimeMillis) < armedAt + UNDO_MS) return;
     const waitingFor: Array<StorefrontPowerWaitingFor> = [];
     let lastError: string | null = null;
     if (yield* hasActiveRun) waitingFor.push("activeRun");
     if (!(yield* screenLocked)) waitingFor.push("screenUnlocked");
+    if (quiet.measured && (quiet.busy !== null || !quiet.filled)) waitingFor.push("busy");
+    const busyWith = quiet.busy;
     if (platform === "linux") {
       const answer = parseCanSuspend((yield* run(CAN_SUSPEND_COMMAND)).output);
       if (answer === "inhibited") waitingFor.push("inhibitor");
@@ -266,16 +312,20 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
     if (waitingFor.length > 0 || lastError !== null) {
       yield* update((current) =>
         current.armedAt !== armedAt ||
-        (current.lastError === lastError && current.waitingFor.join() === waitingFor.join())
+        (current.lastError === lastError &&
+          current.waitingFor.join() === waitingFor.join() &&
+          JSON.stringify(current.busyWith) === JSON.stringify(busyWith))
           ? current
-          : { ...current, waitingFor, lastError },
+          : { ...current, waitingFor, busyWith, lastError },
       );
       return;
     }
     yield* postRelay("sleeping", {});
     // One-shot: it is off before the host sleeps, so a resume does not suspend it again.
     yield* update((current) =>
-      current.armedAt === armedAt ? { ...current, armedAt: null, waitingFor: [] } : current,
+      current.armedAt === armedAt
+        ? { ...current, armedAt: null, waitingFor: [], busyWith: null }
+        : current,
     );
     yield* Effect.logInfo("Storefront sleep when done: suspending this host");
     const result = yield* run(suspend);
@@ -285,7 +335,7 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
       current.armedAt !== null
         ? current
         : inhibited
-          ? { ...current, armedAt, waitingFor: ["inhibitor"] }
+          ? { ...current, armedAt, waitingFor: ["inhibitor"], busyWith: null }
           : {
               ...current,
               lastError: `Suspend failed: ${result.output || `exit ${result.exitCode}`}`,

@@ -252,7 +252,7 @@ function SleepWhenDoneRow({
     return (
       <SettingsRow
         title="Sleeps when done"
-        description={armedDescription(status.waitingFor)}
+        description={armedDescription(status.waitingFor, status.busyWith)}
         control={button("Cancel", false)}
       />
     );
