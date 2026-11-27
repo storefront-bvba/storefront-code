@@ -136,8 +136,8 @@ Next, in this order:
    module has only run on macOS (same AudioToolbox encoder); the next TestFlight build is its
    first iOS build. Then Wouter checks: the pill's reset line, Sleep when done on the PC (also
    that it waits for a busy PC), Wake up, a message and a dictation to the sleeping PC, dictation
-   data (Opus), Done only ringing, and on web the sidebar strip and the composer ring. Wouter
-   still has to disable key expiry for the machine `wake` in Tailscale.
+   data (Opus), Done only ringing, and on web the sidebar strip and the composer ring. Key expiry
+   of the machine `wake` is off (Wouter, 2026-11-27; `KeyExpiry` absent in its status).
 2. **Upstream PRs**: B2 is open as [#44030](https://github.com/pingdotgg/t3code/pull/44030) (worktree
    `~/.t3/worktrees/storefront-code/t3-495020eb-0ec93e2f9b020eba` until it is merged or closed).
    B1's link fix and B3 follow once Wouter has seen them work on the iPhone. The PR names the
