@@ -40,7 +40,7 @@ The server reads it only when it starts, so it applies at the next restart: the 
 - `STOREFRONT_HUB_ORIGIN=https://cpa.storefront.be`: the API origin our CLIProxyAPI hub serves,
   when its usage source (Settings → Providers → Usage providers) has another address (t3hub on
   `http://192.168.0.188:8318`). Threads sent to the hub then find its limits.
-- `STOREFRONT_WAKE_RELAY_URL=https://wol.<tailnet>.ts.net`, `STOREFRONT_WAKE_RELAY_HOST_TOKEN_FILE`
+- `STOREFRONT_WAKE_RELAY_URL=https://wake.<tailnet>.ts.net`, `STOREFRONT_WAKE_RELAY_HOST_TOKEN_FILE`
   and `STOREFRONT_WAKE_RELAY_CLIENT_TOKEN_FILE` (mode 600, in `~/.t3/storefront/`): the wake relay
   ([../wake-relay/](../wake-relay/README.md)). The host heartbeats with its own token and hands
   the client token to the apps for Wake up. Without them Stay awake and Sleep when done still
