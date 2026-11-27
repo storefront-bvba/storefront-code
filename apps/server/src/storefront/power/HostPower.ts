@@ -33,11 +33,10 @@ import * as ServerEnvironment from "../../environment/ServerEnvironment.ts";
 import { forkParked } from "../../serverActivation.ts";
 import {
   CAN_SUSPEND_COMMAND,
-  DISPLAY_SESSION_COMMAND,
-  HYPRLOCK_COMMAND,
-  lockedHintCommand,
+  LOGIND_LOCKED_COMMAND,
   MAC_SESSION_COMMAND,
   macScreenLocked,
+  OMARCHY_LOCKED_COMMAND,
   parseCanSuspend,
   type PowerCommand,
   stayAwakeCommand,
@@ -243,10 +242,9 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
 
   const screenLocked = Effect.gen(function* () {
     if (platform === "darwin") return macScreenLocked((yield* run(MAC_SESSION_COMMAND)).output);
-    if ((yield* run(HYPRLOCK_COMMAND)).exitCode === 0) return true;
-    const session = (yield* run(DISPLAY_SESSION_COMMAND)).output.trim();
-    if (session === "") return false;
-    return (yield* run(lockedHintCommand(session))).output.trim() === "yes";
+    const omarchy = (yield* run(OMARCHY_LOCKED_COMMAND)).exitCode;
+    if (omarchy === 0 || omarchy === 1) return omarchy === 0;
+    return (yield* run(LOGIND_LOCKED_COMMAND)).output.trim() === "yes";
   });
 
   const suspend = suspendCommand(platform);

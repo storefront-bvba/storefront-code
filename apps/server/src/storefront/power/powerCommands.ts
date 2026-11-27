@@ -61,18 +61,33 @@ export const CAN_SUSPEND_COMMAND: PowerCommand = {
 /** logind answers `yes`, `no`, `challenge`, `na` or `inhibited`; busctl prints `s "yes"`. */
 export const parseCanSuspend = (output: string) => /"([a-z-]+)"/.exec(output)?.[1] ?? "unknown";
 
-export const DISPLAY_SESSION_COMMAND: PowerCommand = {
-  command: "loginctl",
-  args: ["show-user", "-p", "Display", "--value"],
+// Omarchy's lock screen does not set logind's LockedHint; its helper asks Hyprland. The server's
+// own HYPRLAND_INSTANCE_SIGNATURE goes stale when Hyprland restarts, so try each live instance.
+// Exits 0 locked, 1 unlocked, 2 when it cannot tell (no Omarchy, no Hyprland).
+export const OMARCHY_LOCKED_COMMAND: PowerCommand = {
+  command: "sh",
+  args: [
+    "-c",
+    [
+      "check=$(command -v omarchy-hyprland-session-locked || echo /usr/share/omarchy/bin/omarchy-hyprland-session-locked)",
+      '[ -x "$check" ] || exit 2',
+      'for sig in $(ls -t "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr" 2>/dev/null); do',
+      '  HYPRLAND_INSTANCE_SIGNATURE=$sig "$check"; result=$?',
+      '  [ "$result" -ne 2 ] && exit "$result"',
+      "done",
+      "exit 2",
+    ].join("\n"),
+  ],
 };
 
-export const lockedHintCommand = (sessionId: string): PowerCommand => ({
-  command: "loginctl",
-  args: ["show-session", sessionId, "-p", "LockedHint", "--value"],
-});
-
-// Omarchy locks with hyprlock, which may not set logind's LockedHint.
-export const HYPRLOCK_COMMAND: PowerCommand = { command: "pidof", args: ["hyprlock"] };
+/** Prints `yes` or `no`: logind's LockedHint for the user's graphical session. */
+export const LOGIND_LOCKED_COMMAND: PowerCommand = {
+  command: "sh",
+  args: [
+    "-c",
+    's=$(loginctl show-user "$(id -u)" -p Display --value) && [ -n "$s" ] && loginctl show-session "$s" -p LockedHint --value',
+  ],
+};
 
 export const MAC_SESSION_COMMAND: PowerCommand = { command: "ioreg", args: ["-n", "Root", "-d1"] };
 

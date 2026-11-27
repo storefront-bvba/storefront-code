@@ -38,8 +38,11 @@ Design of 2026-11-27 (base upstream v0.1.12), approved by Wouter on 2026-11-27. 
   "sleeping" and suspends through logind (`systemctl suspend`; macOS `pmset sleepnow`). The toggle
   clears itself when the host sleeps; disarming before that is a tap. A suspend refused by an
   inhibitor (upstream's hold still in its 60 s grace) is retried on the next check.
-- **Screen locked:** logind's `LockedHint` for the graphical session, or a running `hyprlock` on
-  Omarchy (to confirm on the PC: `LockedHint` was `no` while unlocked; check it while locked).
+- **Screen locked:** on Omarchy, `omarchy-hyprland-session-locked` (it asks Hyprland for an
+  ext-session-lock), tried for each live Hyprland instance because the server's own
+  `HYPRLAND_INSTANCE_SIGNATURE` goes stale when Hyprland restarts. Omarchy's lock screen does not
+  set logind's `LockedHint` (checked on 2026-11-27 with the screen locked: `LockedHint=no`, no
+  hyprlock process); `LockedHint` is the fallback elsewhere. macOS: `CGSSessionScreenIsLocked`.
 - **Heartbeat:** every 20 s the host reports to the relay that it is awake, with whether Stay
   awake or Sleep when done is on; after a resume the next one follows within 20 s.
 - **State** in `<stateDir>/storefront/power.json` (no migration); endpoints beside

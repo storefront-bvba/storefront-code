@@ -24,7 +24,7 @@ interface Host {
   canSuspend: string;
 }
 
-/** Answers like the Omarchy PC: hyprlock, logind and systemd-inhibit, with nothing really run. */
+/** Answers like the Omarchy PC: its lock helper, logind and systemd-inhibit, with nothing run. */
 const fakeSpawner = (host: Host) =>
   ChildProcessSpawner.make((command) =>
     Effect.gen(function* () {
@@ -37,12 +37,11 @@ const fakeSpawner = (host: Host) =>
         ? "\n"
         : line.startsWith("busctl")
           ? `s "${host.canSuspend}"\n`
-          : line.startsWith("loginctl show-user")
-            ? "2\n"
-            : line.startsWith("loginctl show-session")
-              ? "no\n"
-              : "";
-      const exitCode = line === "pidof hyprlock" && !host.locked ? 1 : 0;
+          : line.includes("LockedHint")
+            ? "no\n"
+            : "";
+      // Omarchy's helper answers 0 locked, 1 unlocked.
+      const exitCode = line.includes("omarchy-hyprland-session-locked") && !host.locked ? 1 : 0;
       return ChildProcessSpawner.makeHandle({
         pid: ChildProcessSpawner.ProcessId(4242),
         stdout: stdout ? Stream.make(new TextEncoder().encode(stdout)) : Stream.empty,
