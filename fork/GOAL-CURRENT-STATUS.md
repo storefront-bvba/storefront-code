@@ -115,7 +115,7 @@ Wouter's first results with build 202611261732 on the iPhone (2026-11-27):
 Next, in this order:
 
 1. **Ship the round of 2026-11-27, waiting for a Tailscale auth key** for the relay machine
-   "wake" in `~/Desktop/secret.txt`: push, deploy the relay on o1's Docker VM, host tokens and
+   "wol" in `~/Desktop/secret.txt`: push, deploy the relay on o1's Docker VM, host tokens and
    `STOREFRONT_WAKE_RELAY_*` in `~/.t3/service.env`, one server build and switch (F8, F2b, the
    reset line), one TestFlight build (F8 screens, waking for messages and dictation, the thread
    menu, Opus with the new native module, the usage switch and names). The Opus module has only
@@ -133,7 +133,7 @@ Next, in this order:
    (`apps/mobile/src/storefront/power/`) and on web (`apps/web/src/components/settings/sleepWake/`).
    Lock detection was checked with Wouter's screen locked (Omarchy's helper, not logind). A message
    sent to a thread on a sleeping host wakes it (`wakeForQueuedMessages.ts`). To ship:
-   Wouter puts a Tailscale auth key for the machine "wake" in `~/Desktop/secret.txt`; then deploy
+   Wouter puts a Tailscale auth key for the machine "wol" in `~/Desktop/secret.txt`; then deploy
    the relay on o1's Docker VM (`/home/wouter/storefront-wake/`, hosts: Omarchy with its MAC,
    MacBook without wake), put the host and client tokens in `~/.t3/storefront/` and the
    `STOREFRONT_WAKE_RELAY_*` lines in `~/.t3/service.env`, one server round, one TestFlight build,

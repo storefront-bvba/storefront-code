@@ -7,7 +7,8 @@ it about a host that does not answer and can wake it. Design:
 
 It runs on o1's Docker VM in its own Compose stack: `relay.ts` (Node, no dependencies) on the
 VM's network so its broadcasts reach the LAN, and a Tailscale container that serves it over HTTPS
-on the tailnet only (`https://wake.<tailnet>.ts.net`). No Funnel, nothing on the internet.
+on the tailnet only (`https://wol.<tailnet>.ts.net`, "wol" for Wake-on-LAN). No Funnel, nothing
+on the internet.
 
 ## API
 
@@ -34,13 +35,14 @@ rsync -a --exclude .env --exclude config/relay.json --exclude data \
 
 On the VM, in `/home/wouter/storefront-wake/`, the first time:
 
-1. `.env` (mode 600) with `TS_AUTHKEY=tskey-auth-…`: an auth key from the Tailscale admin console.
+1. `.env` (mode 600) with `TS_AUTHKEY=tskey-auth-…`: a one-off auth key from the Tailscale admin
+   console. Or no key: the `tailscale` container then logs a login link to approve the machine.
    After the first start the node stays logged in through its state volume; disable key expiry
-   for the `wake` machine in the admin console, or it drops off the tailnet after months.
+   for the `wol` machine in the admin console, or it drops off the tailnet after months.
 2. `config/relay.json` (mode 600), after `config/relay.example.json`: the hosts with their MAC
    address and broadcast address, the token hashes, and the web origins allowed by CORS.
 3. `sudo install -d -o 1000 -g 1000 data`: the relay runs as uid 1000 and writes its state there.
-4. `docker compose up -d`, then check `curl https://wake.<tailnet>.ts.net/healthz` from a device
+4. `docker compose up -d`, then check `curl https://wol.<tailnet>.ts.net/healthz` from a device
    on the tailnet.
 
 After a change to `relay.ts`: copy it again and `docker compose restart relay`.
