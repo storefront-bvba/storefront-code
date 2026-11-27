@@ -143,6 +143,7 @@ import { WorkflowRunRouteScreen } from "./features/workflows/WorkflowRunRouteScr
 import { WorkflowStepSheet } from "./features/workflows/WorkflowStepSheet";
 import { SettingsAboutRouteScreen } from "./features/settings/SettingsAboutRouteScreen";
 import { SettingsNotificationsRouteScreen } from "./features/settings/SettingsNotificationsRouteScreen";
+import { SleepWakeScreen } from "./storefront/power/SleepWakeScreen";
 import { SettingsRouteScreen } from "./features/settings/SettingsRouteScreen";
 import { SettingsLabsRouteScreen } from "./features/settings/ThreadSettingsSections";
 import { SettingsEnvironmentFilterProvider } from "./features/settings/settings-environment-filter";
@@ -181,6 +182,7 @@ const ROUTE_TITLES: Readonly<Record<string, string>> = {
   SettingsProviderAccounts: msg("Providers"),
   SettingsEnvironmentMaintenance: msg("Maintenance"),
   SettingsNotifications: msg("Notifications"),
+  SettingsSleepWake: msg("Sleep & wake"),
   SettingsThreads: msg("Threads"),
   SettingsAbout: msg("About"),
   SettingsEnvironmentNew: msg("Add Environment"),
@@ -298,6 +300,11 @@ const SETTINGS_SCREENS = {
   SettingsNotifications: createNativeStackScreen({
     screen: SettingsNotificationsRouteScreen,
     linking: "settings/notifications",
+    options: settingsPage(),
+  }),
+  SettingsSleepWake: createNativeStackScreen({
+    screen: SleepWakeScreen,
+    linking: "settings/sleep-wake",
     options: settingsPage(),
   }),
   SettingsThreads: createNativeStackScreen({

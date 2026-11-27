@@ -57,7 +57,7 @@ export type HostAnswer<A> =
   | { readonly _tag: "Unsupported" }
   | { readonly _tag: "Refused"; readonly status: number };
 
-const answer =
+export const answer =
   <A, I>(schema: Schema.Codec<A, I>) =>
   (response: HttpClientResponse.HttpClientResponse) =>
     Effect.gen(function* () {
@@ -69,7 +69,7 @@ const answer =
       return { _tag: "Ok", value } as HostAnswer<A>;
     });
 
-type RequestError =
+export type RequestError =
   | HttpClientError.HttpClientError
   | Schema.SchemaError
   | EnvironmentAuthInvalidError
@@ -216,7 +216,7 @@ const connectedHostIds = () =>
       ),
     );
 
-const settle = <A, E>(effect: Effect.Effect<HostAnswer<A>, E>) =>
+export const settle = <A, E>(effect: Effect.Effect<HostAnswer<A>, E>) =>
   effect.pipe(
     Effect.catchCause(() => Effect.succeed({ _tag: "Refused", status: 0 } as HostAnswer<A>)),
   );

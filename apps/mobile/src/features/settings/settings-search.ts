@@ -22,6 +22,12 @@ const SETTINGS_SEARCH_TERMS = {
     msg("remote", { $context: "settings search keyword" }),
     "tailscale",
   ],
+  SettingsSleepWake: [
+    msg("sleep", { $context: "settings search keyword" }),
+    msg("wake", { $context: "settings search keyword" }),
+    msg("stay awake", { $context: "settings search keyword" }),
+    msg("suspend", { $context: "settings search keyword" }),
+  ],
   SettingsNotifications: [
     msg("push", { $context: "settings search keyword" }),
     msg("alerts", { $context: "settings search keyword" }),

@@ -139,6 +139,12 @@ function ConfiguredSettingsRouteScreen() {
           label: gt("Notifications"),
           target: "SettingsNotifications",
         },
+        {
+          id: "SettingsSleepWake",
+          icon: "moon",
+          label: gt("Sleep & wake"),
+          target: "SettingsSleepWake",
+        },
       ]}
     />
   );
@@ -157,6 +163,12 @@ function LocalSettingsRouteScreen() {
           icon: "bell.badge",
           label: gt("Notifications"),
           target: "SettingsNotifications",
+        },
+        {
+          id: "SettingsSleepWake",
+          icon: "moon",
+          label: gt("Sleep & wake"),
+          target: "SettingsSleepWake",
         },
       ]}
     />
