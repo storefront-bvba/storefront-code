@@ -18,6 +18,8 @@ Design of 2026-11-27 (base upstream v0.1.12), approved by Wouter on 2026-11-27. 
 - The controls live in Settings → Sleep & wake, on the phone and on web at once.
 - The Omarchy PC already wakes on LAN (Wouter, 2026-11-27).
 - Stay awake and Sleep when done exclude each other: turning one on turns the other off.
+- A message sent from the phone to a thread on a sleeping host wakes that host, and the message is
+  handled once it is awake, so a host always seems reachable (Wouter, 2026-11-27).
 
 ## What upstream already has
 
@@ -90,6 +92,12 @@ Design of 2026-11-27 (base upstream v0.1.12), approved by Wouter on 2026-11-27. 
 - One place for it: **Settings → Sleep & wake**, one card per environment: state from the relay
   ("Awake", "Asleep", "Waking…"), **Wake up**, **Stay awake**, **Sleep when done** (with the
   10-second countdown and Undo). The same card opens from an environment's row.
+- **Waking for a message:** upstream's outbox already keeps a message while its host is not
+  connected and sends it once the connection is back (`resolveThreadOutboxDeliveryAction` waits).
+  `wakeForQueuedMessages.ts` (one line in `App.tsx`) watches the outbox: for every host with a
+  queued message and no connection it asks the relay to wake it (at most once a minute) and
+  retries the connection every 10 s (`environmentCatalog.retryNow`), until the message is out.
+  Attachments that must be uploaded first still wait for a connection, as upstream has it.
 - Better detection: when a host does not answer, the app asks the relay first and shows "Asleep ·
   Wake up" instead of a connection error; after Wake up it shows "Waking…" until the host answers.
 - Web: Settings → Sleep & wake with the same cards. Web is served by a host, so it shows the

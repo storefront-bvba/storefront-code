@@ -110,7 +110,8 @@ Next, in this order:
    [design/F8-sleep-and-wake.md](design/F8-sleep-and-wake.md): the relay `fork/wake-relay/`, the
    host side `apps/server/src/storefront/power/`, Settings → Sleep & wake on the phone
    (`apps/mobile/src/storefront/power/`) and on web (`apps/web/src/components/settings/sleepWake/`).
-   Lock detection was checked with Wouter's screen locked (Omarchy's helper, not logind). To ship:
+   Lock detection was checked with Wouter's screen locked (Omarchy's helper, not logind). A message
+   sent to a thread on a sleeping host wakes it (`wakeForQueuedMessages.ts`). To ship:
    Wouter puts a Tailscale auth key for the machine "wake" in `~/Desktop/secret.txt`; then deploy
    the relay on o1's Docker VM (`/home/wouter/storefront-wake/`, hosts: Omarchy with its MAC,
    MacBook without wake), put the host and client tokens in `~/.t3/storefront/` and the
