@@ -106,13 +106,18 @@ Next, in this order:
    B3, the B1 link fix and B2, each on a `fix/<topic>` branch from fresh `upstream/main` (the fixes
    apply cleanly), with the before/after evidence in `~/.local/share/storefront-code/evidence/`.
    F3 after one of them lands. Also the Ideas comments (#32516, #40926, #32499) as drafts for him.
-3. **F8, sleep and wake** (wish of 2026-11-27): design in
-   [design/F8-sleep-and-wake.md](design/F8-sleep-and-wake.md), waiting for Wouter's approval and
-   three open questions. Decided on 2026-11-27: Sleep when done is one-shot with a 10-second undo;
-   a Stay awake toggle per environment, easy to find; the MacBook is always on Wi-Fi and is not
-   kept awake, and it cannot be woken remotely until a HomePod or Apple TV acts as sleep proxy
-   (Wouter buys one later). Upstream's KeepAwake (`apps/server/src/background/KeepAwake.ts`)
-   already holds a sleep inhibitor while runs are active; F8 builds on it.
+3. **F8, sleep and wake**: built on 2026-11-27 after Wouter approved
+   [design/F8-sleep-and-wake.md](design/F8-sleep-and-wake.md): the relay `fork/wake-relay/`, the
+   host side `apps/server/src/storefront/power/`, Settings → Sleep & wake on the phone
+   (`apps/mobile/src/storefront/power/`) and on web (`apps/web/src/components/settings/sleepWake/`).
+   Lock detection was checked with Wouter's screen locked (Omarchy's helper, not logind). To ship:
+   Wouter puts a Tailscale auth key for the machine "wake" in `~/Desktop/secret.txt`; then deploy
+   the relay on o1's Docker VM (`/home/wouter/storefront-wake/`, hosts: Omarchy with its MAC,
+   MacBook without wake), put the host and client tokens in `~/.t3/storefront/` and the
+   `STOREFRONT_WAKE_RELAY_*` lines in `~/.t3/service.env`, one server round, one TestFlight build,
+   and a first real Sleep when done on the PC. Not done yet: a `test-t3-app` pass of the web page
+   and the app screen on a device; replacing the app's connection error with "Asleep · Wake up"
+   outside the Sleep & wake screen.
 4. **The server round after that**: rename "T3 Code" in the web UI the way
    the app does (a build-time transform), plus whatever else touches the server by then.
 5. **Later:** N3 (ERP remote API: OAuth, `T3CODE_MCP_WEBHOOK_ALLOWED_HOSTS`), the `t3code://` link
@@ -148,7 +153,7 @@ upstream would take it.
 | F5  | Only Tailscale or LAN, no T3 Connect                    | Done: own push and Live Activities checked on the iPhone (2026-11-26, again 2026-11-27); T3 Connect off by policy since 2026-11-26 18:41                              | Fork: host sends push itself                                                                                          | L    | No (new connection method)                 |
 | F6  | Own Apple account, TestFlight                           | Done: own TestFlight builds; latest 202611261732 ("Code", icon B, our names)                                                                                          | Fork: `storefront-identity.ts`, `fork/scripts/`                                                                       | S    | No                                         |
 | F7  | Full end-to-end encryption                              | Decided: nothing to build                                                                                                                                             | Follows from F5 and push design                                                                                       | –    | –                                          |
-| F8  | Sleep when done, stay awake, wake through a relay on o1 | Design ready for approval (2026-11-27, design/F8-sleep-and-wake.md)                                                                                                   | Fork: host sleep service and app toggle; relay on o1 with a REST API sending Wake-on-LAN                              | L    | No (own infrastructure)                    |
+| F8  | Sleep when done, stay awake, wake through a relay on o1 | Built 2026-11-27 (relay, server, app, web; tests pass), not shipped: waits for a Tailscale auth key for the relay                                                     | Fork: host sleep service and app toggle; relay on o1 with a REST API sending Wake-on-LAN                              | L    | No (own infrastructure)                    |
 | N1  | One combined usage meter for pooled accounts            | Done; meter checked by Wouter on the iPhone (2026-11-27); full account names instead of initials in patch 24 (next TestFlight)                                        | Fork                                                                                                                  | S–M  | No                                         |
 | N2  | Toggle % used / % remaining                             | Done in fork; setting was hard to find, so patch 24 puts "% left / % used" beside the meters (next TestFlight); new strings not in the catalogs yet                   | Fork; design follows Ideas #32499 and #30076                                                                          | S–M  | Possible once a maintainer agrees (#32499) |
 | N3  | Remote API for ERP / ticket system                      | Exists via `/mcp`; config gaps                                                                                                                                        | Config, maybe a small patch                                                                                           | S    | –                                          |
