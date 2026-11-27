@@ -79,6 +79,19 @@ patch, a PR, a sync, a decision, a finding.
       `apps/server/src/storefront/voice/` and `deepgram/DeepgramClient.ts`, the native module
       `apps/mobile/modules/storefront-opus/`, `apps/mobile/src/storefront/voice/{ogg,liveOgg,opusVoice}.ts`,
       and the `feed` type in `packages/client-runtime/src/voice-input/stream.ts` (bytes too).
+  30. F8: Sleep when done waits until the computer has been quiet for 5 minutes
+      (`apps/server/src/storefront/power/hostLoad.ts`, `busy` and `busyWith` in the contract, labels
+      on the phone and web).
+  31. `fork:` a queued run keeps the Live Activity (one case moved in
+      `packages/shared/src/agentAwareness.ts`).
+  32. `fork:` a finished thread rings without a text notification (`HostAgentActivity.ts`; the open
+      app rings without an empty banner, `foregroundNotificationBehavior.ts`).
+  33. `fork(web):` full account names in the pooled usage meter (`UsageLimitsPooled.tsx`).
+  34. `fork(web):` the Usage page says when a limit resets as a clock time (`formatResetsIn` and
+      `resetTimeText` in `packages/shared/src/usageLimitsCopy.ts`, two lines on web).
+  35. `fork(web):` the open thread's usage limit always in view: a strip in the sidebar footer, a
+      ring left of the composer's mic without a sidebar (`apps/web/src/components/storefrontUsage/`,
+      one mount each in `ChatView.tsx`, `SidebarChrome.tsx` and `ChatComposer.tsx`).
 - **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
   `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied). The Linux build runs
   it on the source, runs `fork/scripts/check-build.sh`, and checks its own archive with
@@ -115,14 +128,16 @@ Wouter's first results with build 202611261732 on the iPhone (2026-11-27):
 
 Next, in this order:
 
-1. **Ship the round of 2026-11-27, waiting for a Tailscale auth key** for the relay machine
-   "wake" in `~/Desktop/secret.txt`: push, deploy the relay on o1's Docker VM, host tokens and
-   `STOREFRONT_WAKE_RELAY_*` in `~/.t3/service.env`, one server build and switch (F8, F2b, the
-   reset line), one TestFlight build (F8 screens, waking for messages and dictation, the thread
-   menu, Opus with the new native module, the usage switch and names). The Opus module has only
-   run on macOS (same AudioToolbox encoder); the TestFlight build is its first iOS build. Then
-   Wouter checks: the pill's reset line, Sleep when done on the PC, Wake up, a message and a
-   dictation to the sleeping PC, and dictation data (Opus).
+1. **Ship the round of 2026-11-27**: the relay runs on o1 since 10:41 (machine `wake`), host
+   tokens and `STOREFRONT_WAKE_RELAY_*` are in `~/.t3/service.env`. Left: one server build and
+   switch (patches 25-35), one TestFlight build (F8 screens, waking for messages and dictation,
+   the thread menu, Opus with the new native module, the usage switch and names, the reset line,
+   Done without a banner). Build 202611270942 is superseded: it does not know `busy`. The Opus
+   module has only run on macOS (same AudioToolbox encoder); the next TestFlight build is its
+   first iOS build. Then Wouter checks: the pill's reset line, Sleep when done on the PC (also
+   that it waits for a busy PC), Wake up, a message and a dictation to the sleeping PC, dictation
+   data (Opus), Done only ringing, and on web the sidebar strip and the composer ring. Wouter
+   still has to disable key expiry for the machine `wake` in Tailscale.
 2. **Upstream PRs**: B2 is open as [#44030](https://github.com/pingdotgg/t3code/pull/44030) (worktree
    `~/.t3/worktrees/storefront-code/t3-495020eb-0ec93e2f9b020eba` until it is merged or closed).
    B1's link fix and B3 follow once Wouter has seen them work on the iPhone. The PR names the
@@ -172,11 +187,11 @@ upstream would take it.
 | F1  | No telemetry or tracking                                | Done: fork patches, guard and build checks; host runs our build with opt-outs and the managed policy (active since 2026-11-26 18:41)                                  | Config + small patch + guard                                                                                          | S    | No (on by default upstream)                |
 | F2  | 2-step voice input (Deepgram)                           | Live since 2026-11-26; fast cleanup (patch 22) live since 2026-11-27; Ogg Opus on the wire (F2b, ~1/20 of the PCM bytes) and waking dictation built, not shipped      | Fork: Deepgram backend behind the environment's speech service, live stream from web and app, upstream's cleanup step | M–L  | No for now (closed #32530)                 |
 | F3  | Subagent model and effort visible                       | Fixed in fork, live on the host since 2026-11-26 (`.68`): effort shows while a Claude Code subagent runs                                                              | Fork patch now, upstream bug-fix PR later                                                                             | S    | Good (follows #35333 and #43023)           |
-| F4  | Usage indicator in a thread                             | Pill works since server .90 (2026-11-27, patch 23); second line with the next reset to the minute built, not shipped                                                  | Own file + one mount; Idea #40926                                                                                     | S–M  | Doubtful (feature)                         |
+| F4  | Usage indicator in a thread                             | Pill works since server .90 (2026-11-27, patch 23); reset line as a clock time, and on web a sidebar strip and composer ring (patches 28, 34, 35), not shipped        | Own file + one mount; Idea #40926                                                                                     | S–M  | Doubtful (feature)                         |
 | F5  | Only Tailscale or LAN, no T3 Connect                    | Done: own push and Live Activities checked on the iPhone (2026-11-26, again 2026-11-27); T3 Connect off by policy since 2026-11-26 18:41                              | Fork: host sends push itself                                                                                          | L    | No (new connection method)                 |
 | F6  | Own Apple account, TestFlight                           | Done: own TestFlight builds; latest 202611261732 ("Code", icon B, our names)                                                                                          | Fork: `storefront-identity.ts`, `fork/scripts/`                                                                       | S    | No                                         |
 | F7  | Full end-to-end encryption                              | Decided: nothing to build                                                                                                                                             | Follows from F5 and push design                                                                                       | –    | –                                          |
-| F8  | Sleep when done, stay awake, wake through a relay on o1 | Built 2026-11-27 (relay, server, app, web; tests pass), not shipped: waits for a Tailscale auth key for the relay                                                     | Fork: host sleep service and app toggle; relay on o1 with a REST API sending Wake-on-LAN                              | L    | No (own infrastructure)                    |
+| F8  | Sleep when done, stay awake, wake through a relay on o1 | Relay live on o1 since 2026-11-27 10:41; server, app and web built with the quiet-computer rule (patch 30), not shipped                                               | Fork: host sleep service and app toggle; relay on o1 with a REST API sending Wake-on-LAN                              | L    | No (own infrastructure)                    |
 | N1  | One combined usage meter for pooled accounts            | Done; meter checked by Wouter on the iPhone (2026-11-27); full account names instead of initials in patch 24 (next TestFlight)                                        | Fork                                                                                                                  | S–M  | No                                         |
 | N2  | Toggle % used / % remaining                             | Done in fork; setting was hard to find, so patch 24 puts "% left / % used" beside the meters (next TestFlight); new strings not in the catalogs yet                   | Fork; design follows Ideas #32499 and #30076                                                                          | S–M  | Possible once a maintainer agrees (#32499) |
 | N3  | Remote API for ERP / ticket system                      | Exists via `/mcp`; config gaps                                                                                                                                        | Config, maybe a small patch                                                                                           | S    | –                                          |
