@@ -129,12 +129,13 @@ Wouter's first results with build 202611261732 on the iPhone (2026-11-27):
 Next, in this order:
 
 1. **Ship the round of 2026-11-27**: the relay runs on o1 since 10:41 (machine `wake`), host
-   tokens and `STOREFRONT_WAKE_RELAY_*` are in `~/.t3/service.env`. Left: one server build and
-   switch (patches 25-35), one TestFlight build (F8 screens, waking for messages and dictation,
-   the thread menu, Opus with the new native module, the usage switch and names, the reset line,
-   Done without a banner). Build 202611270942 is superseded: it does not know `busy`. The Opus
-   module has only run on macOS (same AudioToolbox encoder); the next TestFlight build is its
-   first iOS build. Then Wouter checks: the pill's reset line, Sleep when done on the PC (also
+   tokens and `STOREFRONT_WAKE_RELAY_*` are in `~/.t3/service.env`. Server `0.1.12-storefront.123`
+   (patches 25-35) built at 11:51 (all checks passed); its switch started at 11:52 and waits for
+   no thread to run (log `~/.t3/backups/install-runtime.log`). TestFlight build 202611271040
+   uploaded (F8 screens, waking for messages and dictation, the thread menu, Opus with the new
+   native module, the usage switch and names, the reset line, Done without a banner); build
+   202611270942 is superseded (it does not know `busy`). 202611271040 is the Opus module's first
+   iOS build (before, only macOS with the same AudioToolbox encoder). Then Wouter checks: the pill's reset line, Sleep when done on the PC (also
    that it waits for a busy PC), Wake up, a message and a dictation to the sleeping PC, dictation
    data (Opus), Done only ringing, and on web the sidebar strip and the composer ring. Key expiry
    of the machine `wake` is off (Wouter, 2026-11-27; `KeyExpiry` absent in its status).
