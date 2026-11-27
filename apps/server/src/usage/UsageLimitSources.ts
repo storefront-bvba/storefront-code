@@ -34,6 +34,7 @@ import { resolveSettingsSecrets } from "../secrets/settingsSecretValue.ts";
 import * as Settings from "../serverSettings.ts";
 import { windowLimitsModel } from "../provider/claudeUsageLimits.ts";
 import { makeCliproxyApi } from "./cliproxyApi.ts";
+import { hubOrigin } from "../storefront/usage/hubOrigin.ts";
 
 const decodeHttpQuotaJson = Schema.decodeUnknownEffect(Schema.fromJsonString(HttpQuotaResponse));
 const decodeHttpQuotaResponse = Effect.fn("UsageLimitSources.decodeHttpQuotaResponse")(function* (
@@ -158,7 +159,7 @@ export const make = Effect.gen(function* () {
       label: sourceLabel(id, config),
       ...(config.kind === "cliproxy" && url && /^https?:$/.test(url.protocol)
         ? {
-            origin: url.origin,
+            origin: yield* hubOrigin(url),
             endpoint: `${url.origin}${url.pathname.replace(/(\/management\.html)?\/*$/i, "")}`,
           }
         : {}),
