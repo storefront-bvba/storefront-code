@@ -298,8 +298,8 @@ const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 
 /**
- * When a limit resets, always to the minute: a countdown ("in 8:21") within a day, else the
- * weekday and time ("Monday 18:00"), with the date from six days out. 24-hour time everywhere.
+ * When a limit resets, as a clock time and never a countdown, always to the minute: "at 20:00"
+ * today, else the weekday and time ("Monday 18:00"), with the date from six days out. 24-hour.
  */
 export function resetTimeText(
   at: number,
@@ -307,17 +307,21 @@ export function resetTimeText(
   locale?: string,
   resolve: MFunctionType = mFallback,
 ): string {
-  const minutes = Math.max(0, Math.floor((at - now) / MINUTE_MS));
-  if (minutes < 24 * 60) {
-    const time = `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
-    return resolve(msg("in {time}", { time, $context: "a usage limit resets in hours:minutes" }));
+  const clock = { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } as const;
+  const day = new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+  if (day.format(at) === day.format(now)) {
+    const time = new Intl.DateTimeFormat(locale, clock).format(at);
+    return resolve(msg("at {time}", { time, $context: "a usage limit resets today at this time" }));
   }
+  const nearby = at - now < 6 * DAY_MS;
   return new Intl.DateTimeFormat(locale, {
-    weekday: at - now < 6 * DAY_MS ? "long" : "short",
-    ...(at - now < 6 * DAY_MS ? {} : { day: "numeric", month: "short" }),
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
+    weekday: nearby ? "long" : "short",
+    ...(nearby ? {} : { day: "numeric", month: "short" }),
+    ...clock,
   }).format(at);
 }
 

@@ -244,19 +244,22 @@ describe("threadLimitWindows", () => {
 });
 
 describe("resetTimeText", () => {
-  const at = Date.parse("2026-09-07T18:00:00.000Z");
+  // Local wall-clock times: "today" is the reader's own calendar day. 7 Sept 2026 is a Monday.
+  const pad = (value: number) => String(value).padStart(2, "0");
+  // An ISO date-time without an offset parses as local time.
+  const local = (day: number, hour: number, minute = 0) =>
+    Date.parse(`2026-09-${pad(day)}T${pad(hour)}:${pad(minute)}:00`);
+  const now = local(7, 11, 39);
 
-  it("counts down hours and minutes within a day, to the minute", () => {
-    expect(resetTimeText(at, at - (8 * 60 + 21) * 60_000 - 30_000, "en")).toBe("in 8:21");
-    expect(resetTimeText(at, at - 7 * 60_000, "en")).toBe("in 0:07");
-    expect(resetTimeText(at, at - (23 * 60 + 59) * 60_000, "en")).toBe("in 23:59");
+  it("says the clock time of a reset later today, to the minute, never a countdown", () => {
+    expect(resetTimeText(local(7, 20), now, "en")).toBe("at 20:00");
+    expect(resetTimeText(local(7, 11, 47), now, "en")).toBe("at 11:47");
+    expect(resetTimeText(local(7, 23, 59), now, "en")).toBe("at 23:59");
   });
 
-  it("names the weekday and time further out, and the date from six days on", () => {
-    const options = { timeZone: "UTC" } as const;
-    const weekday = new Intl.DateTimeFormat("en", { weekday: "long", ...options }).format(at);
-    expect(resetTimeText(at, at - 2 * 24 * 60 * 60_000, "en")).toContain(weekday.slice(0, 3));
-    expect(resetTimeText(at, at - 2 * 24 * 60 * 60_000, "en")).toMatch(/\d{2}:00$/);
-    expect(resetTimeText(at, at - 6 * 24 * 60 * 60_000, "en")).toMatch(/\d/);
+  it("names the weekday and time from tomorrow on, and the date from six days on", () => {
+    expect(resetTimeText(local(8, 1), now, "en")).toBe("Tuesday 01:00");
+    expect(resetTimeText(local(10, 18), now, "en")).toBe("Thursday 18:00");
+    expect(resetTimeText(local(14, 18), now, "en")).toMatch(/Mon.*14.*18:00/);
   });
 });

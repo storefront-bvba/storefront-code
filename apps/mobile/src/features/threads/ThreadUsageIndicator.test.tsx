@@ -129,11 +129,17 @@ describe("ThreadUsageIndicator", () => {
   it("says to the minute when the tightest limit resets and what is left then", () => {
     const resetting = [
       { ...limits[0] },
-      { ...limits[1], resetsAt: "2026-09-03T20:21:00.000Z" },
+      { ...limits[1], resetsAt: "2026-09-03T12:21:00.000Z" },
     ] as const;
+    // A reset later today reads as its local clock time, not a countdown.
+    const clock = new Intl.DateTimeFormat("en", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(Date.parse("2026-09-03T12:21:00.000Z"));
     const soon = renderIndicator(claude([...resetting]));
-    expect(soon.text).toBe("Weekly29% left100% in 8:21");
-    expect(soon.label).toContain(", 100% in 8:21");
+    expect(soon.text).toBe(`Weekly29% left100% at ${clock}`);
+    expect(soon.label).toContain(`, 100% at ${clock}`);
 
     state.display = "used";
     const later = [{ ...limits[1], resetsAt: "2026-09-07T16:00:00.000Z" }] as const;
