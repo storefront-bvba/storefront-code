@@ -56,6 +56,7 @@ function fixture(
       email?: string;
       disabled?: boolean;
       project_id?: string;
+      plan?: string;
       id_token?: { chatgpt_account_id: string; plan_type?: string; chatgpt_plan_type?: string };
     }>;
     upstream?: (request: RequestBody) => { status: number; body: unknown };
@@ -462,6 +463,26 @@ describe("CLIProxyAPI built-in management API", () => {
       });
       const result = yield* (yield* test.api).readAccounts(config);
       expect(result[0]?.usageLimits.windows.map((window) => window.id)).toEqual(["five_hour"]);
+    }),
+  );
+
+  it.effect("names a Claude account's plan when the hub lists it", () =>
+    Effect.gen(function* () {
+      const test = fixture({
+        accounts: [
+          { ...accounts[0]!, provider: "claude", plan: "Ultra" },
+          { ...accounts[1]!, provider: "claude" },
+        ],
+        upstream: () => ({
+          status: 200,
+          body: { seven_day: { utilization: 50, resets_at: "2099-01-01T00:00:00Z" } },
+        }),
+      });
+      const result = yield* (yield* test.api).readAccounts(config);
+      expect(result.map((account) => account.plan)).toEqual([
+        "Claude Ultra Subscription",
+        "Claude Subscription",
+      ]);
     }),
   );
 

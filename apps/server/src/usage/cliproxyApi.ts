@@ -46,6 +46,8 @@ const AuthFile = Schema.Struct({
   email: Schema.optional(Schema.String),
   disabled: Schema.optional(Schema.Boolean),
   project_id: Schema.optional(Schema.String),
+  // Storefront Code (fork): t3hub names a Claude account's plan; CLIProxyAPI itself does not.
+  plan: Schema.optional(Schema.String),
   id_token: Schema.optional(
     Schema.Struct({
       chatgpt_account_id: Schema.optional(Schema.String),
@@ -336,7 +338,9 @@ const HUB_PROVIDERS = new Map<string, HubProvider>([
         };
         return {
           ...listedIdentity(account),
-          plan: "Claude Subscription",
+          plan: account.plan?.trim()
+            ? `Claude ${account.plan.trim()} Subscription`
+            : "Claude Subscription",
           usageLimits: claudeUsageResponseToLimits({
             checkedAt,
             response: { rate_limits_available: true, rate_limits: rateLimits },
