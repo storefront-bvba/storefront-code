@@ -18,7 +18,12 @@ import {
   remainingPercent,
   resetCountdown,
 } from "@t3tools/shared/usageLimits";
-import { formatDuration, limitsNotice, resetCreditChoices } from "@t3tools/shared/usageLimitsCopy";
+import {
+  formatResetsIn,
+  limitsNotice,
+  resetCreditChoices,
+  resetTimeText,
+} from "@t3tools/shared/usageLimitsCopy";
 import { shownPercent } from "@t3tools/shared/usageLimitsDisplay";
 import { msg, T, useGT, useMessages, Var } from "gt-react-native";
 import { type ReactNode, useContext, useRef, useState } from "react";
@@ -390,23 +395,15 @@ export function useRefreshLimits(
   };
 }
 
+// Storefront Code (fork): a reset is a clock time, never a countdown, as on web (Wouter, 2026-11-27).
 export function resetLabels(
   window: ServerProviderUsageWindow,
   now: number,
   resolve: MessageResolver,
 ): { readonly full: string; readonly compact: string } | null {
-  const countdown = resetCountdown(window, now);
-  if (countdown === null) return null;
-  if (countdown.kind === "now") {
-    const full = resolve(msg("resets now", { $context: "usage limit" }));
-    return { full, compact: full };
-  }
-  if (countdown.kind === "momentarily") {
-    const momentarily = resolve(msg("Resets momentarily"));
-    return { full: momentarily, compact: momentarily };
-  }
-  const duration = formatDuration(countdown.ms, resolve);
-  return { full: resolve(msg("resets in {duration}", { duration })), compact: duration };
+  const full = formatResetsIn(window, now, resolve);
+  if (full === null) return null;
+  return { full, compact: formatResetsIn(window, now, resolve, "in") ?? full };
 }
 
 export function refillLabel(
@@ -424,9 +421,9 @@ export function refillLabel(
     return resolve(msg("↻ +{percent}% Resets momentarily", { percent }));
   }
   return resolve(
-    msg("↻ +{percent}% in {duration}", {
+    msg("↻ +{percent}% {when}", {
       percent,
-      duration: formatDuration(countdown.ms, resolve),
+      when: resetTimeText(now + countdown.ms, now, undefined, resolve),
       $context: "usage limit refill",
     }),
   );
