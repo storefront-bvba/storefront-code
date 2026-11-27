@@ -46,6 +46,7 @@ import { UsageDailyChart } from "./UsageDailyChart";
 import { toggleUsageEnvironment } from "./usageEnvironmentSelection";
 import { useRefreshLimits } from "./UsageLimitsSection";
 import { UsageLimitsSection } from "./UsageLimitsPooled";
+import { UsageLimitDisplayControl } from "./UsageLimitDisplayControl";
 import type { UsageChartMetric } from "./usageChartData";
 import { PROVIDER_LABEL, useProviderColors, useUsageMixColors } from "./usageProviders";
 
@@ -270,7 +271,7 @@ function UsageScreen(props: {
             {wide ? (
               <View className="flex-row items-center gap-3">
                 {showingLimits ? (
-                  <View className="flex-1" />
+                  <UsageLimitDisplayControl className="flex-1" />
                 ) : (
                   <SegmentedControl
                     options={windowOptions}

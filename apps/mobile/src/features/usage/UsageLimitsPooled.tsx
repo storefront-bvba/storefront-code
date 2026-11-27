@@ -42,6 +42,7 @@ import { SettingsScreen } from "../settings/components/SettingsScreen";
 import { environmentPresentations } from "../../state/presentation";
 import { refillLabel, ResetCredits, resetLabels } from "./UsageLimitsSection";
 import { usageProviderKind, useProviderColors } from "./usageProviders";
+import { UsageLimitDisplayControl } from "./UsageLimitDisplayControl";
 import { useUsageLimitDisplay } from "./useUsageLimitDisplay";
 
 const PACE_LABEL = {
@@ -53,14 +54,7 @@ const PACE_LABEL = {
 function accountName(account: LimitAccount, resolve: MessageResolver) {
   if (account.displayName) return account.displayName;
   if (!account.email) return providerClients.get(account.driver)?.label ?? account.driver;
-  return (
-    emailInitials(account.email) || resolve(msg("Account", { $context: "fallback account name" }))
-  );
-}
-
-function emailInitials(email: string) {
-  const [local = "", domain = ""] = email.split("@");
-  return `${local[0] ?? ""}${domain[0] ?? ""}`.toUpperCase();
+  return account.email || resolve(msg("Account", { $context: "fallback account name" }));
 }
 
 /** An account's segment read aloud, with what is left or what is used. */
@@ -475,6 +469,7 @@ export function UsageLimitsSection({
   const display = useUsageLimitDisplay();
   return (
     <View className="gap-6">
+      {wide ? null : <UsageLimitDisplayControl />}
       {pools.length === 0 &&
       notices.length === 0 &&
       failedLabels.length === 0 &&
