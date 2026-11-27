@@ -25,6 +25,8 @@ import {
 } from "./usageLimits.ts";
 import { limitsNotice } from "./usageLimitsCopy.ts";
 
+export { resetTimeText } from "./usageLimitsCopy.ts";
+
 export type { UsageLimitDisplay };
 
 const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
@@ -295,35 +297,6 @@ export interface ThreadLimitWindow {
 }
 
 const MINUTE_MS = 60_000;
-const DAY_MS = 24 * 60 * MINUTE_MS;
-
-/**
- * When a limit resets, as a clock time and never a countdown, always to the minute: "at 20:00"
- * today, else the weekday and time ("Monday 18:00"), with the date from six days out. 24-hour.
- */
-export function resetTimeText(
-  at: number,
-  now: number,
-  locale?: string,
-  resolve: MFunctionType = mFallback,
-): string {
-  const clock = { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } as const;
-  const day = new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  });
-  if (day.format(at) === day.format(now)) {
-    const time = new Intl.DateTimeFormat(locale, clock).format(at);
-    return resolve(msg("at {time}", { time, $context: "a usage limit resets today at this time" }));
-  }
-  const nearby = at - now < 6 * DAY_MS;
-  return new Intl.DateTimeFormat(locale, {
-    weekday: nearby ? "long" : "short",
-    ...(nearby ? {} : { day: "numeric", month: "short" }),
-    ...clock,
-  }).format(at);
-}
 
 const resetsAtMillis = (window: ServerProviderUsageWindow) => {
   const at = window.resetsAt === undefined ? Number.NaN : Date.parse(window.resetsAt);

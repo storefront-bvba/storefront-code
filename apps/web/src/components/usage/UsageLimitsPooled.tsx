@@ -44,9 +44,9 @@ import {
   collectExternalUsageLinks,
   collectLimitNotices,
   cursorUsageWindowDetails,
-  formatDuration,
   formatResetsIn,
   resetCreditChoices,
+  resetTimeText,
 } from "@t3tools/shared/usageLimitsCopy";
 import {
   limitEvenPaceText,
@@ -651,7 +651,7 @@ function PoolWindowCard({
               <span className="font-medium text-foreground">
                 ↻ +<Var>{nextRefill.restoresPercent}</Var>%
               </span>{" "}
-              in <Var>{formatDuration(nextRefill.at - now, m)}</Var>
+              <Var>{resetTimeText(nextRefill.at, now, undefined, m)}</Var>
             </T>
           </span>
         ) : null}

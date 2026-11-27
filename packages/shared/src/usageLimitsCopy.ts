@@ -210,7 +210,37 @@ export function resetCreditChoices(
 }
 
 /**
- * `full` reads "resets in 2h 5m", `in` reads "in 2h 5m", `refill` reads "↻ 2h 5m".
+ * When a limit resets, as a clock time and never a countdown, always to the minute: "at 20:00"
+ * today, else the weekday and time ("Monday 18:00"), with the date from six days out. 24-hour.
+ */
+export function resetTimeText(
+  at: number,
+  now: number,
+  locale?: string,
+  resolve: MFunctionType = mFallback,
+): string {
+  const clock = { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } as const;
+  const day = new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+  if (day.format(at) === day.format(now)) {
+    const time = new Intl.DateTimeFormat(locale, clock).format(at);
+    return resolve(msg("at {time}", { time, $context: "a usage limit resets today at this time" }));
+  }
+  const nearby = at - now < 6 * DAY;
+  return new Intl.DateTimeFormat(locale, {
+    weekday: nearby ? "long" : "short",
+    ...(nearby ? {} : { day: "numeric", month: "short" }),
+    ...clock,
+  }).format(at);
+}
+
+/**
+ * `full` reads "resets at 20:00", `in` reads "at 20:00", `refill` reads "↻ at 20:00"; further
+ * out the weekday ("resets Monday 18:00"). Storefront Code (fork): a clock time to the minute,
+ * never a countdown (Wouter, 2026-11-27).
  * @public
  */
 export function formatResetsIn(
@@ -223,12 +253,8 @@ export function formatResetsIn(
   if (countdown === null) return null;
   if (countdown.kind === "now") return resolve(msg("resets now"));
   if (countdown.kind === "momentarily") return resolve(msg("Resets momentarily"));
-  const duration = formatDuration(countdown.ms, resolve);
-  if (style === "in") {
-    return resolve(
-      msg("in {duration}", { duration, $context: "time until a usage window resets" }),
-    );
-  }
-  if (style === "refill") return resolve(msg("↻ {duration}", { duration }));
-  return resolve(msg("resets in {duration}", { duration }));
+  const when = resetTimeText(now + countdown.ms, now, undefined, resolve);
+  if (style === "in") return when;
+  if (style === "refill") return resolve(msg("↻ {when}", { when }));
+  return resolve(msg("resets {when}", { when, $context: "when a usage window resets" }));
 }

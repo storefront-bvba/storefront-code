@@ -196,9 +196,8 @@ function WindowBar({
           ) : null}
           {resetsAt ? (
             <span className="text-muted-foreground">
-              {resetsIn
-                ? gt("Resets {resetsAt} · {resetsIn}", { resetsAt, resetsIn })
-                : gt("Resets {resetsAt}", { resetsAt })}
+              {/* Storefront Code (fork): resetsIn is a clock time now, the same moment again. */}
+              {gt("Resets {resetsAt}", { resetsAt })}
             </span>
           ) : null}
         </div>

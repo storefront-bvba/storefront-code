@@ -1,5 +1,8 @@
 import { ProviderDriverKind } from "@t3tools/contracts";
+import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
+
+import { formatResetsIn } from "./usageLimitsCopy.ts";
 
 import { collectLimitPools, type LimitAccount } from "./usageLimits.ts";
 import {
@@ -255,6 +258,13 @@ describe("resetTimeText", () => {
     expect(resetTimeText(local(7, 20), now, "en")).toBe("at 20:00");
     expect(resetTimeText(local(7, 11, 47), now, "en")).toBe("at 11:47");
     expect(resetTimeText(local(7, 23, 59), now, "en")).toBe("at 23:59");
+  });
+
+  it("is what every reset text on the Usage page says", () => {
+    const window = { resetsAt: DateTime.formatIso(DateTime.makeUnsafe(local(7, 20))) } as never;
+    expect(formatResetsIn(window, now)).toBe("resets at 20:00");
+    expect(formatResetsIn(window, now, undefined, "in")).toBe("at 20:00");
+    expect(formatResetsIn(window, now, undefined, "refill")).toBe("↻ at 20:00");
   });
 
   it("names the weekday and time from tomorrow on, and the date from six days on", () => {
