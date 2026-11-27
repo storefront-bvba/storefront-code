@@ -9,6 +9,14 @@ numbers drift. See [../GOAL.md](../GOAL.md) and the F5 section of
 - Notifications and Live Activities look exactly as with upstream (decision 2026-11-26): same
   fields (project and thread titles, model, phase, status), same texts, same timing. We reuse
   upstream's aggregation, alert and payload code instead of writing our own.
+- Two deviations from upstream (Wouter, 2026-11-27, after a day of "Done" banners): a finished
+  thread sent as a plain notification (no Live Activity token on the host) carries only a sound,
+  no text (`HostAgentActivity.ts`, and the app rings without an empty banner while open,
+  `foregroundNotificationBehavior.ts`); and a queued run counts as live work for the card
+  (`packages/shared/src/agentAwareness.ts`), as upstream's own `LIVE_SHELL_STATUSES` has it. Before,
+  a follow-up waiting to start after an interrupt projected to nothing and ended the card mid-work;
+  the phone only registers a new card when it opens, so every later "Done" was a text banner.
+  Upstream's relay did the same (41 such banners in the T3 relay days of the boot log).
 - The host talks to APNs directly (HTTP/2, token auth) with our key "Storefront Code Push"
   (Key ID `R2MGM4T6A5`, team `2Z43A4WSC3`, Sandbox & Production, team scoped). The key file lives
   on the host outside the repository: `~/.t3/storefront/AuthKey_R2MGM4T6A5.p8` (mode 600).
@@ -22,6 +30,7 @@ numbers drift. See [../GOAL.md](../GOAL.md) and the F5 section of
 ## Today's upstream flow
 
 Host → relay:
+
 - `apps/server/src/relay/AgentAwarenessRelay.ts` watches domain events (80-151), builds a state per
   thread (326-374), sanitises failure detail (212-224), holds back "completed" and tombstones for
   5 s (633-689), skips repeats, retries with backoff (824-856).
@@ -35,6 +44,7 @@ Host → relay:
   (`packages/shared/src/agentAwareness.ts`:128-150, 193-210).
 
 Relay (`infra/relay/src/agentActivity/`):
+
 - Rows per thread, fan-out to linked users (`AgentActivityPublisher.ts`:183-225); aggregate only
   when a device has a Live Activity token (61-93).
 - Aggregate (`agentActivityAggregate.ts`:74-121): title, order approval/input → failed → running,
@@ -50,6 +60,7 @@ Relay (`infra/relay/src/agentActivity/`):
 
 APNs requests (`ApnsClient.ts`; JWT `apnsJwt.ts`:69-120, ES256, reused 45 min,
 `ApnsProviderTokens.ts`:13):
+
 - Alert (214-238, 355-363): `POST https://api[.sandbox].push.apple.com/3/device/<token>`,
   `apns-push-type: alert`, `apns-topic: <bundleId>`, priority 10, body
   `{"aps":{"alert":{"title":threadTitle,"body":"Approval: <projectTitle>"},"sound":"default",
@@ -62,6 +73,7 @@ APNs requests (`ApnsClient.ts`; JWT `apnsJwt.ts`:69-120, ES256, reused 45 min,
   (+15 without content); payload fitted to 4 KB (122-162).
 
 Phone (`apps/mobile/src/features/agent-awareness/remoteRegistration.ts`):
+
 - Relay token from Clerk (`relay.ts`:1158-1172, `cloudAccountService.ts`:37-51).
 - `POST /v1/mobile/devices` `{deviceId, label, platform, iosMajorVersion, appVersion, bundleId,
   apsEnvironment, pushToken, preferences}` (`relay.ts`:46-68, 1027; built 696-768; skipped when
@@ -77,6 +89,7 @@ Phone (`apps/mobile/src/features/agent-awareness/remoteRegistration.ts`):
 ## Design
 
 Server, new files in `apps/server/src/storefront/push/`:
+
 - `HostPushConfig.ts` (~60): `STOREFRONT_APNS_KEY_FILE`, `STOREFRONT_APNS_KEY_ID`,
   `STOREFRONT_APNS_TEAM_ID`, `STOREFRONT_APNS_TOPICS` (allowlist of bundle IDs) from the service
   environment (`~/.t3/service.env`). Push is off when the key is not configured.
@@ -103,20 +116,22 @@ Confirm that the server bundle resolves them (`@noble` from `infra/relay/node_mo
 
 Copied (private helpers or Cloudflare-bound), each with a header naming the upstream commit, and
 `fork/scripts/check-push-port.mjs` (~40) flags upstream changes at sync:
+
 - `ApnsDeliveries.ts`:150-318 and 1045-1095 (~150);
 - publish, replay and idle-end logic of `AgentActivityPublisher.ts` (~80);
 - the "keep arming time" rule of `LiveActivities.ts`:159-163.
 
 Edits in existing files (~11 lines):
 
-| File (commits in 30 days) | Edit |
-| --- | --- |
+| File (commits in 30 days)                           | Edit                                                                                                                                                                                |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/server/src/relay/AgentAwarenessRelay.ts` (17) | read `AgentActivitySink`; when set, `readSecretString` gates pass and `publishState` hands the state to the sink first and never calls the relay; `layer` provides `HostPush.layer` |
-| `apps/server/src/server.ts` (65) | provide `StorefrontPushHttp.layer` (append) |
-| `apps/server/src/cloud/config.ts` (0) | `agentActivityPublishing` true when APNs is configured |
-| `packages/contracts/src/environmentHttp.ts` (17) | `.add(StorefrontPushHttpApi)` (append) |
+| `apps/server/src/server.ts` (65)                    | provide `StorefrontPushHttp.layer` (append)                                                                                                                                         |
+| `apps/server/src/cloud/config.ts` (0)               | `agentActivityPublishing` true when APNs is configured                                                                                                                              |
+| `packages/contracts/src/environmentHttp.ts` (17)    | `.add(StorefrontPushHttpApi)` (append)                                                                                                                                              |
 
 Mobile, new files in `apps/mobile/src/storefront/push/`:
+
 - `hostPushClient.ts` (~150): per environment, `executeConnectedEnvironmentHttpRequest` with
   group `storefrontPush` via `connectionAtomRuntime` (reuses DPoP renewal; pattern
   `linkEnvironment.ts`:166-200); 404 = host without support.
@@ -130,14 +145,15 @@ Mobile, new files in `apps/mobile/src/storefront/push/`:
 
 Mobile edits:
 
-| File (commits in 30 days) | Edit |
-| --- | --- |
-| `apps/mobile/src/features/cloud/CloudAuthProvider.tsx` (0) | `activateHostPush()` instead of `deactivateCloudRelayAccount()` |
-| `apps/mobile/src/lib/runtime.ts` (1) | wrap `ManagedRelayLayer.layer(...)` |
-| `apps/mobile/src/features/agent-awareness/remoteRegistration.ts` (9) | `?? hostPushRelayKey()` |
-| `SettingsNotificationsRouteScreen.tsx` (9) | one line that shows our screen instead of "requires T3 Connect" |
+| File (commits in 30 days)                                            | Edit                                                            |
+| -------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `apps/mobile/src/features/cloud/CloudAuthProvider.tsx` (0)           | `activateHostPush()` instead of `deactivateCloudRelayAccount()` |
+| `apps/mobile/src/lib/runtime.ts` (1)                                 | wrap `ManagedRelayLayer.layer(...)`                             |
+| `apps/mobile/src/features/agent-awareness/remoteRegistration.ts` (9) | `?? hostPushRelayKey()`                                         |
+| `SettingsNotificationsRouteScreen.tsx` (9)                           | one line that shows our screen instead of "requires T3 Connect" |
 
 Targets, pruning, environments:
+
 - Notify every device whose `sessionId` is still an active session
   (`EnvironmentAuth.listSessions()`, cached 30 s); prune at once on `clientRemoved`; expire a
   registration not refreshed for 14 days.

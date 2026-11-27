@@ -202,10 +202,9 @@ describe("HostAgentActivity", () => {
       yield* TestClock.adjust("1 second");
       yield* publish(activity, state("completed", at(2_000)));
       assert.equal(requests.length, 2);
-      assert.deepStrictEqual(requests[1]!.body.aps.alert, {
-        title: "Thread",
-        body: "Done: Project",
-      });
+      // Storefront: a finished thread rings without a text banner.
+      assert.deepStrictEqual(requests[1]!.body.aps, { sound: "default" });
+      assert.equal(requests[1]!.headers["apns-push-type"], "alert");
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 

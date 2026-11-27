@@ -9,6 +9,15 @@ const SHOW: NotificationBehavior = {
   shouldSetBadge: false,
 };
 
+// Storefront Code (fork): the host sends a finished thread as a sound without text; with the app
+// open that rings too, but shows no empty banner.
+const SOUND_ONLY: NotificationBehavior = {
+  shouldShowBanner: false,
+  shouldShowList: false,
+  shouldPlaySound: true,
+  shouldSetBadge: false,
+};
+
 const SUPPRESS: NotificationBehavior = {
   shouldShowBanner: false,
   shouldShowList: false,
@@ -24,5 +33,7 @@ export function foregroundNotificationBehavior(
   if (target !== null && target === deepLinkOnScreen) {
     return SUPPRESS;
   }
+  const { title, body } = notification.request.content;
+  if (!title && !body) return SOUND_ONLY;
   return SHOW;
 }

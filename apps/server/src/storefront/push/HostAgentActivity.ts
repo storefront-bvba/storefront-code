@@ -361,7 +361,22 @@ export const make = Effect.fn("storefront.push.HostAgentActivity.make")(function
     ) {
       return null;
     }
-    const request = apns.makePushNotificationRequest({ token: input.token, notification });
+    const built = apns.makePushNotificationRequest({ token: input.token, notification });
+    // Wouter (2026-11-27): a finished thread only rings; the card shows what is done, never a banner.
+    const request =
+      notification.phase === "completed"
+        ? {
+            ...built,
+            payload: {
+              aps: { sound: "default" },
+              body: {
+                environmentId: notification.environmentId,
+                threadId: notification.threadId,
+                deepLink: notification.deepLink,
+              },
+            },
+          }
+        : built;
     const result = yield* deliver(input.target, (credentials) =>
       apns.sendPushNotificationRequest({ credentials, request, issuedAtUnixSeconds: epochSeconds }),
     );

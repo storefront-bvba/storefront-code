@@ -155,6 +155,8 @@ Written by Wouter on 2026-11-26. Changes to a wish are noted in place, with a da
 - No T3 Connect for connecting environments and apps, but using only Tailscale (or the LAN).
 - Use our own Apple Developer account for push notifications and live updates instead of T3. We
   deploy using TestFlight.
+  - _2026-11-27:_ a finished thread only plays a sound, without a text notification; the Live
+    Activity on the lock screen shows what is done, and that is enough.
 - _2026-11-27:_ Sleep when done. A "Sleep when done" toggle puts the environment to sleep once it
   is done: no working threads any more and nobody at the computer (screen locked). Waking it up
   goes through Wake-on-LAN, from a small relay on o1 (which is always on), for example in the
@@ -162,6 +164,8 @@ Written by Wouter on 2026-11-26. Changes to a wish are noted in place, with a da
   wakeable when they are needed; the MacBook has no environment yet, we will give it one. The iOS
   app gets better sleep/awake detection through the relay and a "Wake up" function. The relay has
   a REST API.
+  - _2026-11-27:_ it also waits for a quiet computer: heavy processes still running in the
+    background must not be cut off because Storefront Code is done.
 - Full end-to-end encryption.
   - _2026-11-26:_ nothing to build. Tailscale encrypts device-to-host traffic, the home LAN is
     trusted, T3 Connect goes away, and our own push payloads carry no content.
