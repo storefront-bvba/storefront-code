@@ -615,7 +615,8 @@ export function UsageLimitAccountScreen({ route }: AccountScreenProps) {
   const window = pool?.members.find((member) => member.account.key === accountKey)?.window;
   const evenPace = window ? paceRemainingPercent(window, now) : null;
   const reset = pool?.resets.find((candidate) => candidate.member.account.key === accountKey);
-  const [revealed, setRevealed] = useState(false);
+  // Storefront Code (fork): account names show unless hidden with a tap (Wouter, 2026-11-27).
+  const [revealed, setRevealed] = useState(true);
   const gt = useGT();
   const display = useUsageLimitDisplay();
   return (

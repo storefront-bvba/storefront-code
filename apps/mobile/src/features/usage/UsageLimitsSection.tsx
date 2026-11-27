@@ -158,7 +158,8 @@ function WindowRow(props: {
 }
 
 function AccountInstanceLabel({ value }: { readonly value: string }) {
-  const [revealed, setRevealed] = useState(false);
+  // Storefront Code (fork): account names show unless hidden with a tap (Wouter, 2026-11-27).
+  const [revealed, setRevealed] = useState(true);
   const gt = useGT();
   if (!value.includes("@")) {
     return (

@@ -551,7 +551,8 @@ function ProviderAccountSummary({
   readonly email: string | undefined;
 }) {
   const gt = useGT();
-  const [revealed, setRevealed] = useState(false);
+  // Storefront Code (fork): account names show unless hidden with a tap (Wouter, 2026-11-27).
+  const [revealed, setRevealed] = useState(true);
   const content = (
     <>
       <Text textRole="body" className="text-foreground" numberOfLines={1}>
