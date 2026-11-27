@@ -133,7 +133,8 @@ export function openSpeechStream(input: {
   armTimeout();
   if (input.signal.aborted) abort();
   return {
-    feed: (pcm: Float32Array) => {
+    // Storefront Code (fork): bytes too, for Ogg Opus on our own stream (F2b).
+    feed: (pcm: Float32Array | Uint8Array) => {
       if (closed || finishing) return;
       const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
       if (queuedBytes + inFlightBytes + bytes.byteLength > SPEECH_STREAM_MAX_QUEUED_BYTES) {

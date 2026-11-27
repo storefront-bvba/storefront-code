@@ -7,7 +7,13 @@ import { AudioModule, type RecorderState, type RecordingStatus } from "expo-audi
 import { Platform } from "react-native";
 
 import type { NativeVoiceRecorder } from "../../features/voice-input/lazyVoiceRecorder";
+import { liveOgg } from "./liveOgg";
 import { livePcm } from "./liveVoice";
+
+// Loaded at start-up, long before the first dictation; without the module recordings stay PCM.
+void import("./opusEncoder")
+  .then(({ createOpusEncoder }) => liveOgg.useEncoder(createOpusEncoder))
+  .catch(() => undefined);
 
 const SAMPLE_RATE = 16_000;
 const SILENCE_DB = -160;
@@ -46,7 +52,10 @@ export function createLiveVoiceRecorder(): NativeVoiceRecorder<
     for (const sample of samples) energy += sample * sample;
     const rms = samples.length ? Math.sqrt(energy / samples.length) / 32768 : 0;
     metering = rms > 0 ? Math.max(SILENCE_DB, 20 * Math.log10(rms)) : SILENCE_DB;
-    if (buffer.channels === 1) livePcm.push(samples, buffer.sampleRate);
+    if (buffer.channels === 1) {
+      livePcm.push(samples, buffer.sampleRate);
+      liveOgg.push(samples, buffer.sampleRate);
+    }
   });
   stream.addListener("audioStreamStatus", ({ isStreaming }) => {
     // The stream stopping on its own (an interruption) ends the recording with an error.
