@@ -93,10 +93,19 @@ patch, a PR, a sync, a decision, a finding.
       ring left of the composer's mic without a sidebar (`apps/web/src/components/storefrontUsage/`,
       one mount each in `ChatView.tsx`, `SidebarChrome.tsx` and `ChatComposer.tsx`; in the collapsed
       narrow composer the ring sits at the right of the model row, a second mount there). A click
-      opens the thread's usage panel, a second click closes it (2026-11-27, after `.129`; not yet in
-      a server build).
+      opens the thread's usage panel, a second click closes it (2026-11-27, after `.129`).
   36. `fork(web):` account names show without a blur (`RedactedSensitiveText.tsx` starts
       revealed; a click still hides one).
+  37. `fork(mobile):` account names show without `••••••@••••••` first (Usage page, account
+      detail, Settings → Provider accounts; a tap still hides one).
+  38. `fork(mobile):` the Usage page and the thread's limits panel say when a limit resets as a
+      clock time (`resetLabels` and `refillLabel` in `UsageLimitsSection.tsx` use the shared
+      `formatResetsIn` and `resetTimeText` of patch 34).
+  39. `fork(server):` a hub's Claude account shows its plan ("Claude Ultra Subscription") when the
+      hub lists one (`plan` in `auth-files`, `apps/server/src/usage/cliproxyApi.ts`). CLIProxyAPI
+      itself has no such field; our t3hub on o1 sends it from the plugin's `plans` since
+      2026-11-27 15:24 (cpa-plugin-expiring-first `4f95891`). Upstream hard-codes "Claude
+      Subscription".
 - **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
   `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied). The Linux build runs
   it on the source, runs `fork/scripts/check-build.sh`, and checks its own archive with
@@ -138,7 +147,10 @@ Next, in this order:
    (patches 25-35) ran from 12:13 (threads 460 → 460; the relay gets its heartbeat every 20 s).
    Follow-up `0.1.12-storefront.129` (patch 36 and the collapsed-composer ring) runs since 13:46
    (backup `~/.t3/backups/2026-11-27-1346-before-0.1.12-storefront.129`, threads 461 → 461). The
-   strip and ring closing the panel on a second click waits for the next server round. The relay
+   next server build, `0.1.12-storefront.135` (the panel toggle of patch 35 and patch 39), was
+   built at 15:32 with every check passed and waits for the next restart (`.132` from 15:24 is
+   superseded: it lacks patch 39). TestFlight build with patches 37 and 38 started on the
+   MacBook at 15:27. The relay
    also allows the web app at `http://localhost:3773` since 13:00 (its CORS list on o1; the
    Sleep & wake page said it could not reach the relay). TestFlight build 202611271040
    uploaded (F8 screens, waking for messages and dictation, the thread menu, Opus with the new
