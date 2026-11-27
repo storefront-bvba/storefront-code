@@ -32,7 +32,8 @@ export function RedactedSensitiveText(props: {
   readonly hideTooltip: string;
   readonly className?: string;
 }) {
-  const [visibility, setVisibility] = useState<"hidden" | "hiding" | "revealed">("hidden");
+  // Storefront Code (fork): account names show unless hidden with a click (Wouter, 2026-11-27).
+  const [visibility, setVisibility] = useState<"hidden" | "hiding" | "revealed">("revealed");
   const revealed = visibility === "revealed";
   const value = props.value?.trim();
   const redacted = value ? redactedPlaceholder(value) : "";
