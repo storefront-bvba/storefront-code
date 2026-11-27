@@ -38,7 +38,8 @@ On the VM, in `/home/wouter/storefront-wake/`, the first time:
    After the first start the node stays logged in through its state volume; disable key expiry
    for the `wake` machine in the admin console, or it drops off the tailnet after months.
 2. `config/relay.json` (mode 600), after `config/relay.example.json`: the hosts with their MAC
-   address and broadcast address, the token hashes, and the web origins allowed by CORS.
+   address and broadcast address, the token hashes, and the web origins allowed by CORS: every
+   address the web app is opened at, the tailnet one and `http://localhost:3773` on the host itself.
 3. `sudo install -d -o 1000 -g 1000 data`: the relay runs as uid 1000 and writes its state there.
 4. `docker compose up -d`, then check `curl https://wake.<tailnet>.ts.net/healthz` from a device
    on the tailnet.

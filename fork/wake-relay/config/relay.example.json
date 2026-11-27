@@ -1,5 +1,5 @@
 {
-  "corsOrigins": ["https://omarchy.taila38105.ts.net"],
+  "corsOrigins": ["https://omarchy.taila38105.ts.net", "http://localhost:3773"],
   "tokens": [
     {
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
