@@ -60,6 +60,14 @@ patch, a PR, a sync, a decision, a finding.
   24. `fork(mobile):` "% left / % used" beside the meters on Usage → Limits
       (`UsageLimitDisplayControl.tsx`, one line in `UsageRouteScreen.tsx`) and full account names
       instead of initials in the pooled meter. N1, N2.
+  25. F8, sleep and wake (2026-11-27, not shipped yet): `fork/wake-relay/`, `apps/server/src/storefront/power/`
+      (one line each in `server.ts` and `packages/contracts/src/environmentHttp.ts`, one export in its
+      `index.ts`), `apps/mobile/src/storefront/power/` (route in `Stack.tsx`, rows in
+      `SettingsRouteScreen.tsx`, search terms, one line in `App.tsx`) and
+      `apps/web/src/components/settings/sleepWake/` (route file and one line per settings table).
+  26. `fork(mobile):` Rename and Regenerate title on the first level of a thread's menu
+      (`apps/mobile/src/storefront/threads/threadMenuLayout.ts`, one import in
+      `thread-list-v2-items.tsx`; upstream's layout and its test are untouched).
 - **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
   `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied). The Linux build runs
   it on the source, runs `fork/scripts/check-build.sh`, and checks its own archive with
