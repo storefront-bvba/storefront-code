@@ -68,6 +68,16 @@ patch, a PR, a sync, a decision, a finding.
   26. `fork(mobile):` Rename and Regenerate title on the first level of a thread's menu
       (`apps/mobile/src/storefront/threads/threadMenuLayout.ts`, one import in
       `thread-list-v2-items.tsx`; upstream's layout and its test are untouched).
+  27. F8 additions (2026-11-27): a message queued for a sleeping host wakes it
+      (`apps/mobile/src/storefront/power/wakeForQueuedMessages.ts`, one line in `App.tsx`), and so
+      does dictation (`apps/mobile/src/storefront/voice/wakingVoice.ts`; small mounts in
+      `voiceDestination.ts`, `VoiceInputProvider.tsx`, `ComposerDictationControl.tsx`).
+  28. `fork(mobile):` the usage pill's second line, the next reset to the minute
+      (`packages/shared/src/usageLimitsDisplay.ts`, `ThreadUsageIndicator.tsx`). F4.
+  29. F2b, Ogg Opus for dictation (design [design/F2-opus-voice.md](design/F2-opus-voice.md)):
+      `apps/server/src/storefront/voice/` and `deepgram/DeepgramClient.ts`, the native module
+      `apps/mobile/modules/storefront-opus/`, `apps/mobile/src/storefront/voice/{ogg,liveOgg,opusVoice}.ts`,
+      and the `feed` type in `packages/client-runtime/src/voice-input/stream.ts` (bytes too).
 - **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
   `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied). The Linux build runs
   it on the source, runs `fork/scripts/check-build.sh`, and checks its own archive with
@@ -104,12 +114,14 @@ Wouter's first results with build 202611261732 on the iPhone (2026-11-27):
 
 Next, in this order:
 
-1. **Check patches 22-24 on the devices.** Shipped on 2026-11-27: server `0.1.12-storefront.90`
-   (switch started 06:59, waiting until no thread runs; `STOREFRONT_CLEANUP_MODEL` and
-   `STOREFRONT_HUB_ORIGIN` added to `~/.t3/service.env`) and TestFlight build 202611270551.
-   Confirm the switch in `~/.t3/backups/install-runtime.log` ("result: running new version=yes"),
-   then Wouter checks the pill in a thread, the "% left / % used" switch, the full names and the
-   cleanup speed.
+1. **Ship the round of 2026-11-27, waiting for a Tailscale auth key** for the relay machine
+   "wake" in `~/Desktop/secret.txt`: push, deploy the relay on o1's Docker VM, host tokens and
+   `STOREFRONT_WAKE_RELAY_*` in `~/.t3/service.env`, one server build and switch (F8, F2b, the
+   reset line), one TestFlight build (F8 screens, waking for messages and dictation, the thread
+   menu, Opus with the new native module, the usage switch and names). The Opus module has only
+   run on macOS (same AudioToolbox encoder); the TestFlight build is its first iOS build. Then
+   Wouter checks: the pill's reset line, Sleep when done on the PC, Wake up, a message and a
+   dictation to the sleeping PC, and dictation data (Opus).
 2. **Upstream PRs**: B2 is open as [#44030](https://github.com/pingdotgg/t3code/pull/44030) (worktree
    `~/.t3/worktrees/storefront-code/t3-495020eb-0ec93e2f9b020eba` until it is merged or closed).
    B1's link fix and B3 follow once Wouter has seen them work on the iPhone. The PR names the
@@ -157,9 +169,9 @@ upstream would take it.
 | B2  | Selecting text to the left closes the panel             | Fixed in fork; checked by Wouter on the iPhone (2026-11-27)                                                                                                           | Upstream PR                                                                                                           | S    | Upstream PR #44030 (open)                  |
 | B3  | Bottom menu bar stays visible in a thread               | Fixed in fork, on `storefront` since 2026-11-26 (reproduced and verified in the simulator); in TestFlight build 202611261654                                          | Upstream PR                                                                                                           | S    | Good                                       |
 | F1  | No telemetry or tracking                                | Done: fork patches, guard and build checks; host runs our build with opt-outs and the managed policy (active since 2026-11-26 18:41)                                  | Config + small patch + guard                                                                                          | S    | No (on by default upstream)                |
-| F2  | 2-step voice input (Deepgram)                           | Live on the host and in TestFlight; first phone dictation worked (2026-11-26 19:31), cleanup too slow (4.4 s): patch 22 (0.7-0.9 s) waits for the next server round   | Fork: Deepgram backend behind the environment's speech service, live stream from web and app, upstream's cleanup step | M–L  | No for now (closed #32530)                 |
+| F2  | 2-step voice input (Deepgram)                           | Live since 2026-11-26; fast cleanup (patch 22) live since 2026-11-27; Ogg Opus on the wire (F2b, ~1/20 of the PCM bytes) and waking dictation built, not shipped      | Fork: Deepgram backend behind the environment's speech service, live stream from web and app, upstream's cleanup step | M–L  | No for now (closed #32530)                 |
 | F3  | Subagent model and effort visible                       | Fixed in fork, live on the host since 2026-11-26 (`.68`): effort shows while a Claude Code subagent runs                                                              | Fork patch now, upstream bug-fix PR later                                                                             | S    | Good (follows #35333 and #43023)           |
-| F4  | Usage indicator in a thread                             | Pill missing on the iPhone (2026-11-27): hub and usage source have different origins; patch 23 waits for the next server round                                        | Own file + one mount; Idea #40926                                                                                     | S–M  | Doubtful (feature)                         |
+| F4  | Usage indicator in a thread                             | Pill works since server .90 (2026-11-27, patch 23); second line with the next reset to the minute built, not shipped                                                  | Own file + one mount; Idea #40926                                                                                     | S–M  | Doubtful (feature)                         |
 | F5  | Only Tailscale or LAN, no T3 Connect                    | Done: own push and Live Activities checked on the iPhone (2026-11-26, again 2026-11-27); T3 Connect off by policy since 2026-11-26 18:41                              | Fork: host sends push itself                                                                                          | L    | No (new connection method)                 |
 | F6  | Own Apple account, TestFlight                           | Done: own TestFlight builds; latest 202611261732 ("Code", icon B, our names)                                                                                          | Fork: `storefront-identity.ts`, `fork/scripts/`                                                                       | S    | No                                         |
 | F7  | Full end-to-end encryption                              | Decided: nothing to build                                                                                                                                             | Follows from F5 and push design                                                                                       | –    | –                                          |
