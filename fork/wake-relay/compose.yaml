@@ -26,7 +26,7 @@ services:
     network_mode: host
     environment:
       TS_USERSPACE: "true"
-      TS_HOSTNAME: wol
+      TS_HOSTNAME: wake
       TS_AUTHKEY: ${TS_AUTHKEY:-}
       TS_AUTH_ONCE: "true"
       TS_STATE_DIR: /var/lib/tailscale
