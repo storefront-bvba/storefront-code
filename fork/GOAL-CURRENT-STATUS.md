@@ -148,8 +148,9 @@ Next, in this order:
    Follow-up `0.1.12-storefront.129` (patch 36 and the collapsed-composer ring) runs since 13:46
    (backup `~/.t3/backups/2026-11-27-1346-before-0.1.12-storefront.129`, threads 461 → 461). The
    next server build, `0.1.12-storefront.135` (the panel toggle of patch 35 and patch 39), was
-   built at 15:32 with every check passed and waits for the next restart (`.132` from 15:24 is
-   superseded: it lacks patch 39). TestFlight build 202611271425 (patches 37 and 38 on top of 202611271040) uploaded at 15:37. The relay
+   built at 15:32 with every check passed; its switch started at 16:46 on Wouter's word and waits
+   for no thread to run (`.132` from 15:24 is superseded: it lacks patch 39). TestFlight build
+   202611271425 (patches 37 and 38 on top of 202611271040) uploaded at 15:37. The relay
    also allows the web app at `http://localhost:3773` since 13:00 (its CORS list on o1; the
    Sleep & wake page said it could not reach the relay). TestFlight build 202611271040
    uploaded (F8 screens, waking for messages and dictation, the thread menu, Opus with the new
