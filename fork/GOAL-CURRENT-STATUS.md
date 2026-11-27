@@ -91,7 +91,10 @@ patch, a PR, a sync, a decision, a finding.
       `resetTimeText` in `packages/shared/src/usageLimitsCopy.ts`, two lines on web).
   35. `fork(web):` the open thread's usage limit always in view: a strip in the sidebar footer, a
       ring left of the composer's mic without a sidebar (`apps/web/src/components/storefrontUsage/`,
-      one mount each in `ChatView.tsx`, `SidebarChrome.tsx` and `ChatComposer.tsx`).
+      one mount each in `ChatView.tsx`, `SidebarChrome.tsx` and `ChatComposer.tsx`; in the collapsed
+      narrow composer the ring sits at the right of the model row, a second mount there).
+  36. `fork(web):` account names show without a blur (`RedactedSensitiveText.tsx` starts
+      revealed; a click still hides one).
 - **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
   `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied). The Linux build runs
   it on the source, runs `fork/scripts/check-build.sh`, and checks its own archive with
@@ -130,8 +133,11 @@ Next, in this order:
 
 1. **Ship the round of 2026-11-27**: the relay runs on o1 since 10:41 (machine `wake`), host
    tokens and `STOREFRONT_WAKE_RELAY_*` are in `~/.t3/service.env`. Server `0.1.12-storefront.123`
-   (patches 25-35) runs since 12:13 (all build checks passed; threads 460 → 460; the relay gets its
-   heartbeat every 20 s). TestFlight build 202611271040
+   (patches 25-35) ran from 12:13 (threads 460 → 460; the relay gets its heartbeat every 20 s).
+   Follow-up `0.1.12-storefront.129` (patch 36 and the collapsed-composer ring) built at 13:07,
+   all checks passed; its switch started right after and waits for no thread to run. The relay
+   also allows the web app at `http://localhost:3773` since 13:00 (its CORS list on o1; the
+   Sleep & wake page said it could not reach the relay). TestFlight build 202611271040
    uploaded (F8 screens, waking for messages and dictation, the thread menu, Opus with the new
    native module, the usage switch and names, the reset line, Done without a banner); build
    202611270942 is superseded (it does not know `busy`). 202611271040 is the Opus module's first
