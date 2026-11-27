@@ -96,15 +96,23 @@ Wouter's first results with build 202611261732 on the iPhone (2026-11-27):
 
 Next, in this order:
 
-1. **Ship patches 22-24**: one server round (build, add `STOREFRONT_CLEANUP_MODEL=claude-sonnet-5-5`
-   and `STOREFRONT_HUB_ORIGIN=https://cpa.storefront.be` to `~/.t3/service.env`, restart when
-   idle) and one TestFlight build; Wouter checks the pill, the toggle, the names and the cleanup.
+1. **Check patches 22-24 on the devices.** Shipped on 2026-11-27: server `0.1.12-storefront.90`
+   (switch started 06:59, waiting until no thread runs; `STOREFRONT_CLEANUP_MODEL` and
+   `STOREFRONT_HUB_ORIGIN` added to `~/.t3/service.env`) and TestFlight build 202611270551.
+   Confirm the switch in `~/.t3/backups/install-runtime.log` ("result: running new version=yes"),
+   then Wouter checks the pill in a thread, the "% left / % used" switch, the full names and the
+   cleanup speed.
 2. **Upstream PRs** (Wouter asked for them; show each draft to him before opening, at most 3 open):
    B3, the B1 link fix and B2, each on a `fix/<topic>` branch from fresh `upstream/main` (the fixes
    apply cleanly), with the before/after evidence in `~/.local/share/storefront-code/evidence/`.
    F3 after one of them lands. Also the Ideas comments (#32516, #40926, #32499) as drafts for him.
-3. **F8, sleep when done** (wish of 2026-11-27): agree on the design with Wouter first (one-shot
-   or standing toggle, how the MacBook on Wi-Fi can be woken, where the relay lives on o1).
+3. **F8, sleep when done** (wish of 2026-11-27). Decided with Wouter on 2026-11-27: the toggle is
+   one-shot (it turns itself off after the host slept; arming it again is always possible) and
+   waits 10 seconds after a tap, so a mistaken tap can be undone. The MacBook is always on Wi-Fi:
+   a magic packet over Wi-Fi does not reliably wake a sleeping Mac (macOS wakes for network access
+   on Wi-Fi only through a Bonjour Sleep Proxy such as an Apple TV or HomePod), so its wake path
+   is still open. Next: the design (relay API on o1's Docker VM, host heartbeat, app toggle and
+   "Wake up") for Wouter to approve.
 4. **The server round after that**: rename "T3 Code" in the web UI the way
    the app does (a build-time transform), plus whatever else touches the server by then.
 5. **Later:** N3 (ERP remote API: OAuth, `T3CODE_MCP_WEBHOOK_ALLOWED_HOSTS`), the `t3code://` link
@@ -621,6 +629,7 @@ need.
 
 | Date       | Upstream tag | Notes                                                                                                                                                                                                                                                                                        |
 | ---------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-27 | v0.1.12      | Built `0.1.12-storefront.90` (patches 22-23; gate, web boot, smoke test and artifact check passed) and started the switch at 06:59, waiting until idle. iOS build `202611270551` (patch 24) uploaded.                                                                                        |
 | 2026-11-26 | v0.1.12      | Omarchy host switched to `0.1.12-storefront.68` at 16:59 (F2-F5, N1, N2; threads 448 → 448); managed policy installed, then T3 Connect off by policy and restarted at 18:41. iOS builds `202611261654` (notifications screen, B1-B3) and `202611261732` (our names, icon B).                 |
 | 2026-11-26 | v0.1.12      | Hardening branch built as `0.1.12-storefront.48` (not installed): guard, gate (typecheck, tests), web boot, smoke test and artifact check passed; title and manifest say Storefront Code, no Google favicon URL. The previous script would have failed after the web build (quoting), fixed. |
 | 2026-11-26 | v0.1.12      | Omarchy host switched to `0.1.12-storefront.31` (Storefront mark in the web UI).                                                                                                                                                                                                             |
