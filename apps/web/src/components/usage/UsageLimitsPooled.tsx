@@ -121,9 +121,11 @@ function AccountName({
 }) {
   if (account.displayName) return <span className={className}>{account.displayName}</span>;
   if (account.email) {
+    // Storefront Code (fork): the whole account beside its chip, not only initials (Wouter, 2026-11-27).
     return (
-      <span className={cn("inline-flex min-w-0 items-center", className)}>
+      <span className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>
         <AccountChip email={account.email} />
+        <span className="min-w-0 truncate">{account.email}</span>
       </span>
     );
   }
