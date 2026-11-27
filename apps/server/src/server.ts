@@ -125,6 +125,7 @@ import * as Keybindings from "./keybindings.ts";
 import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
 import * as ServerOwnership from "./serverOwnership.ts";
 import * as AgentAwarenessRelay from "./relay/AgentAwarenessRelay.ts";
+import * as StorefrontPowerHttp from "./storefront/power/http.ts";
 import * as StorefrontPushHttp from "./storefront/push/http.ts";
 import { hasCloudPublicConfig } from "./cloud/publicConfig.ts";
 import * as ServerSettings from "./serverSettings.ts";
@@ -912,6 +913,7 @@ const layerMakeRoutes = Layer.mergeAll(
       Layer.provide(ServerHttp.layerServerEnvironmentHttpApi),
       Layer.provide(WebhookRoute.layer.pipe(Layer.provide(RelayDeliveryProof.layer))),
       Layer.provide(StorefrontPushHttp.layer),
+      Layer.provide(StorefrontPowerHttp.layer),
       Layer.provide(AuthHttp.layerAuthenticatedAuth),
       Layer.provide(ServerHttp.layerApiBodyLimit),
     ),

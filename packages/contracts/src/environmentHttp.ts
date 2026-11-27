@@ -97,6 +97,7 @@ import {
   RelayEnvironmentMintResponse,
   RelayLinkProofRequest,
 } from "./relay.ts";
+import { makeStorefrontPowerHttpApi } from "./storefrontPower.ts";
 import { makeStorefrontPushHttpApi } from "./storefrontPush.ts";
 
 const OptionalBearerHeaders = Schema.Struct({
@@ -1114,6 +1115,14 @@ export class EnvironmentHttpApi extends HttpApi.make("environment")
   .add(EnvironmentPeerLinkHttpApi)
   .add(
     makeStorefrontPushHttpApi({
+      auth: EnvironmentAuthenticatedAuth,
+      requestInvalid: EnvironmentRequestInvalidError,
+      scopeRequired: EnvironmentScopeRequiredError,
+      internal: EnvironmentInternalError,
+    }),
+  )
+  .add(
+    makeStorefrontPowerHttpApi({
       auth: EnvironmentAuthenticatedAuth,
       requestInvalid: EnvironmentRequestInvalidError,
       scopeRequired: EnvironmentScopeRequiredError,
