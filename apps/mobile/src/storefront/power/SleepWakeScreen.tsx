@@ -26,14 +26,8 @@ import { appAtomRegistry } from "../../state/atom-registry";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
 import type { HostAnswer } from "../push/hostPushClient";
 import { relayStateLabel, sleepWhenDoneLabel } from "./sleepWakeLabels";
-import {
-  hostPowerStatusAtom,
-  type RelayHosts,
-  relayHostsAtom,
-  setSleepWhenDone,
-  setStayAwake,
-  wakeHost,
-} from "./hostPowerClient";
+import { hostPowerStatusAtom, setSleepWhenDone, setStayAwake } from "./hostPowerClient";
+import { type RelayHosts, relayHostsAtom, wakeHost } from "./wakeRelayClient";
 
 const REFRESH_MS = 10_000;
 
