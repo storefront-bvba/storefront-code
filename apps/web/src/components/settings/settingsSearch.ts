@@ -16,6 +16,10 @@ import { writeLocalStorageValue } from "../../hooks/useLocalStorage";
 import type { MessageResolver } from "../../i18n/messages";
 import { commandLabel } from "./KeybindingsSettings.logic";
 import type { ResolvedSettingsScope } from "./settingsScope";
+import {
+  SLEEP_WAKE_SEARCH_ITEMS,
+  SLEEP_WAKE_SECTION_LABEL,
+} from "./sleepWake/sleepWakeSettingsEntry";
 
 export type SettingsPath =
   | "/settings/projects"
@@ -37,6 +41,7 @@ export type SettingsPath =
   | "/settings/connections"
   | "/settings/access"
   | "/settings/secrets"
+  | "/settings/sleep-wake"
   | "/settings/maintenance"
   | "/settings/labs"
   | "/settings/about"
@@ -120,6 +125,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/about": msg("About"),
   "/settings/voice": msg("Voice"),
   "/settings/archived": msg("Archive"),
+  ...SLEEP_WAKE_SECTION_LABEL,
 };
 
 /** Sidebar labels; an entry of its own lets a translator shorten one below its page title. */
@@ -168,7 +174,12 @@ const ALL_SETTINGS_NAV_GROUPS: ReadonlyArray<SettingsNavGroup> = [
   },
   {
     heading: msg("Connections"),
-    paths: ["/settings/connections", "/settings/access", "/settings/secrets"],
+    paths: [
+      "/settings/connections",
+      "/settings/access",
+      "/settings/secrets",
+      "/settings/sleep-wake",
+    ],
   },
   {
     heading: msg("More"),
@@ -1531,6 +1542,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/archived",
     searchTerms: [msg("restore reopen deleted history projects")],
   },
+  ...SLEEP_WAKE_SEARCH_ITEMS,
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;
 
 export type SettingsSearchItemId = (typeof SETTINGS_SEARCH_ITEMS)[number]["id"];
@@ -1556,6 +1568,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/connections": "connections",
   "/settings/access": "connections",
   "/settings/secrets": null,
+  "/settings/sleep-wake": null,
   "/settings/scheduled-tasks": null,
   "/settings/maintenance": null,
   "/settings/labs": null,
