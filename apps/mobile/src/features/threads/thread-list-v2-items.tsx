@@ -87,10 +87,10 @@ import {
   resolveThreadListV2Status,
   resolveThreadListV2ProviderDrivers,
   resolveThreadListV2SwipeActions,
-  layoutThreadListV2RowMenuActions,
   threadListV2RowAccessibilityLabel,
   type ThreadListV2Status,
 } from "./threadListV2";
+import { layoutThreadListV2RowMenuActions } from "../../storefront/threads/threadMenuLayout";
 import { QueuedMessageIcon } from "./queued-message-icon";
 import { shouldRecedeThreadRow } from "./thread-row-emphasis";
 import { ThreadSearchMatchExcerpt } from "./thread-search-match";
