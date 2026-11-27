@@ -51,6 +51,15 @@ patch, a PR, a sync, a decision, a finding.
   21. `fork(mobile):` our names and look in the app: "Code" on the home screen, icon, splash, the S
       mark in the title, widget and Live Activity, no "Beta" badge, and a Babel plugin that renames
       "T3 Code" in the app's strings (see F6 below; assets from `fork/scripts/brand-assets.py`).
+  22. `fork(server):` fast voice cleanup: with `STOREFRONT_CLEANUP_MODEL`, cleanup calls the hub's
+      Messages API directly with thinking off (`apps/server/src/storefront/cleanup/HubCleanup.ts`,
+      one line in `apps/server/src/speech/http.ts`). F2.
+  23. `fork(server):` `STOREFRONT_HUB_ORIGIN` names the API origin of a hub whose usage source has
+      another address (`apps/server/src/storefront/usage/hubOrigin.ts`, one line in
+      `apps/server/src/usage/UsageLimitSources.ts`). Fixes the missing usage pill in threads. F4.
+  24. `fork(mobile):` "% left / % used" beside the meters on Usage → Limits
+      (`UsageLimitDisplayControl.tsx`, one line in `UsageRouteScreen.tsx`) and full account names
+      instead of initials in the pooled meter. N1, N2.
 - **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
   `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied). The Linux build runs
   it on the source, runs `fork/scripts/check-build.sh`, and checks its own archive with
@@ -68,25 +77,37 @@ patch, a PR, a sync, a decision, a finding.
     bash, which sets `SHELL`) and `apps/web/src/lib/bootError.test.ts` (counts "outer", which
     `/home/wouter` contains).
 
-## Where we left off (2026-11-26, evening)
+## Where we left off (2026-11-27, morning)
 
-The first session ran in a T3 scratch thread ("Plan T3 Code fork with GOAL.md"); from now on work in
-this project folder. Everything is committed and pushed; the host runs `0.1.12-storefront.68` with
-the managed policy (T3 Connect off), and TestFlight has build 202611261732. Next, in this order:
+Wouter's first results with build 202611261732 on the iPhone (2026-11-27):
 
-1. **Wouter tests build 202611261732** on the iPhone and iPad (TestFlight): "Code" under the new
-   icon (gradient, white S), "S Code" without "Beta" at the top, the S on the lock screen and the
-   widget; B1 (tap a Live Activity from a real push), B2 (select text to the left with a finger), B3
-   (no dock over the composer); voice (Settings → Voice → Transcribe on: the Omarchy environment;
-   Cleanup model on that screen); the usage pill, the pooled meter and the % toggle. Then he removes
-   the official T3 Code app (it lost its access when Connect went off).
+- Good: push and Live Activities, B2 (selecting to the left), the pooled meter.
+- Voice cleanup too slow: 4.4 s on the host for one sentence. Cause: cleanup ran as a Claude Code
+  session (process start, a 7,400-token system prompt, a second turn for structured output) on
+  Haiku 5.5, which thinks by default. Fixed by patch 22: Sonnet 5.5 with thinking off and low
+  effort straight through the hub takes 0.7-0.9 s and resolves Flemish self-corrections and
+  misheard jargon (Haiku without thinking left "nee ik bedoel" corrections in and was slower).
+- No usage pill in threads. Cause: clients pair a thread with a hub by origin; Claude reports
+  `https://cpa.storefront.be`, the usage source is t3hub at `http://192.168.0.188:8318`. Fixed by
+  patch 23 (`STOREFRONT_HUB_ORIGIN`), which also fixes web's thread details card.
+- Meter: wanted a "% left / % used" toggle beside it (the setting under Appearance was not found)
+  and full account names instead of initials. Patch 24.
+- Not reported yet: icon and names, B1 from a real push, B3, removing the official app.
+
+Next, in this order:
+
+1. **Ship patches 22-24**: one server round (build, add `STOREFRONT_CLEANUP_MODEL=claude-sonnet-5-5`
+   and `STOREFRONT_HUB_ORIGIN=https://cpa.storefront.be` to `~/.t3/service.env`, restart when
+   idle) and one TestFlight build; Wouter checks the pill, the toggle, the names and the cleanup.
 2. **Upstream PRs** (Wouter asked for them; show each draft to him before opening, at most 3 open):
    B3, the B1 link fix and B2, each on a `fix/<topic>` branch from fresh `upstream/main` (the fixes
    apply cleanly), with the before/after evidence in `~/.local/share/storefront-code/evidence/`.
    F3 after one of them lands. Also the Ideas comments (#32516, #40926, #32499) as drafts for him.
-3. **Next server round** (one build, one restart when idle): rename "T3 Code" in the web UI the way
+3. **F8, sleep when done** (wish of 2026-11-27): agree on the design with Wouter first (one-shot
+   or standing toggle, how the MacBook on Wi-Fi can be woken, where the relay lives on o1).
+4. **The server round after that**: rename "T3 Code" in the web UI the way
    the app does (a build-time transform), plus whatever else touches the server by then.
-4. **Later:** N3 (ERP remote API: OAuth, `T3CODE_MCP_WEBHOOK_ALLOWED_HOSTS`), the `t3code://` link
+5. **Later:** N3 (ERP remote API: OAuth, `T3CODE_MCP_WEBHOOK_ALLOWED_HOSTS`), the `t3code://` link
    scheme, "Copy thread" links that still point at `app.t3.codes`, catalogs for new strings, and the
    unused T3 account token `~/.t3/userdata/secrets/cloud-cli-oauth-token.bin` (backed up in
    `~/.t3/backups/2026-11-26-1841-before-restart`; delete once nothing needs it).
@@ -110,17 +131,18 @@ upstream would take it.
 | #   | Wish                                         | State                                                                                                                                                                 | Route                                                                                                                 | Size | Upstream                                   |
 | --- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------ |
 | B1  | Live Activity tap opens the right thread     | Fixed in fork, on `storefront` since 2026-11-26 (reproduced and verified in the simulator); in TestFlight build 202611261654; tap with real pushes on the iPhone open | Upstream PR (fix); order change in fork                                                                               | S    | Good for the fix                           |
-| B2  | Selecting text to the left closes the panel  | Fixed in fork, on `storefront` since 2026-11-26 (page slide reproduced and fixed in the simulator); in TestFlight build 202611261654; finger check on the iPhone open | Upstream PR                                                                                                           | S    | Good                                       |
+| B2  | Selecting text to the left closes the panel  | Fixed in fork; checked by Wouter on the iPhone (2026-11-27)                                                                                                           | Upstream PR                                                                                                           | S    | Good                                       |
 | B3  | Bottom menu bar stays visible in a thread    | Fixed in fork, on `storefront` since 2026-11-26 (reproduced and verified in the simulator); in TestFlight build 202611261654                                          | Upstream PR                                                                                                           | S    | Good                                       |
 | F1  | No telemetry or tracking                     | Done: fork patches, guard and build checks; host runs our build with opt-outs and the managed policy (active since 2026-11-26 18:41)                                  | Config + small patch + guard                                                                                          | S    | No (on by default upstream)                |
-| F2  | 2-step voice input (Deepgram)                | Host side live since 2026-11-26 16:59 (`0.1.12-storefront.68`, key file in `service.env`); app side in TestFlight build 202611261527, device test open                | Fork: Deepgram backend behind the environment's speech service, live stream from web and app, upstream's cleanup step | M–L  | No for now (closed #32530)                 |
+| F2  | 2-step voice input (Deepgram)                | Live on the host and in TestFlight; first phone dictation worked (2026-11-26 19:31), cleanup too slow (4.4 s): patch 22 (0.7-0.9 s) waits for the next server round   | Fork: Deepgram backend behind the environment's speech service, live stream from web and app, upstream's cleanup step | M–L  | No for now (closed #32530)                 |
 | F3  | Subagent model and effort visible            | Fixed in fork, live on the host since 2026-11-26 (`.68`): effort shows while a Claude Code subagent runs                                                              | Fork patch now, upstream bug-fix PR later                                                                             | S    | Good (follows #35333 and #43023)           |
-| F4  | Usage indicator in a thread                  | Done in fork; web live (`.68`), app in TestFlight build 202611261527, not yet seen on a device                                                                        | Own file + one mount; Idea #40926                                                                                     | S–M  | Doubtful (feature)                         |
-| F5  | Only Tailscale or LAN, no T3 Connect         | Done on the host: own push and Live Activities checked on the iPhone (2026-11-26); T3 Connect off by policy since 18:41 (unlinked, no tunnel)                         | Fork: host sends push itself                                                                                          | L    | No (new connection method)                 |
+| F4  | Usage indicator in a thread                  | Pill missing on the iPhone (2026-11-27): hub and usage source have different origins; patch 23 waits for the next server round                                        | Own file + one mount; Idea #40926                                                                                     | S–M  | Doubtful (feature)                         |
+| F5  | Only Tailscale or LAN, no T3 Connect         | Done: own push and Live Activities checked on the iPhone (2026-11-26, again 2026-11-27); T3 Connect off by policy since 2026-11-26 18:41                              | Fork: host sends push itself                                                                                          | L    | No (new connection method)                 |
 | F6  | Own Apple account, TestFlight                | Done: own TestFlight builds; latest 202611261732 ("Code", icon B, our names)                                                                                          | Fork: `storefront-identity.ts`, `fork/scripts/`                                                                       | S    | No                                         |
 | F7  | Full end-to-end encryption                   | Decided: nothing to build                                                                                                                                             | Follows from F5 and push design                                                                                       | –    | –                                          |
-| N1  | One combined usage meter for pooled accounts | Done in fork; web live (`.68`), app in TestFlight, not yet seen on a device                                                                                           | Fork                                                                                                                  | S–M  | No                                         |
-| N2  | Toggle % used / % remaining                  | Done in fork; web live (`.68`), app in TestFlight; new strings not in the catalogs yet                                                                                | Fork; design follows Ideas #32499 and #30076                                                                          | S–M  | Possible once a maintainer agrees (#32499) |
+| F8  | Sleep when done, wake through a relay on o1  | Wish recorded 2026-11-27; design open (see Where we left off)                                                                                                         | Fork: host sleep service and app toggle; relay on o1 with a REST API sending Wake-on-LAN                              | L    | No (own infrastructure)                    |
+| N1  | One combined usage meter for pooled accounts | Done; meter checked by Wouter on the iPhone (2026-11-27); full account names instead of initials in patch 24 (next TestFlight)                                        | Fork                                                                                                                  | S–M  | No                                         |
+| N2  | Toggle % used / % remaining                  | Done in fork; setting was hard to find, so patch 24 puts "% left / % used" beside the meters (next TestFlight); new strings not in the catalogs yet                   | Fork; design follows Ideas #32499 and #30076                                                                          | S–M  | Possible once a maintainer agrees (#32499) |
 | N3  | Remote API for ERP / ticket system           | Exists via `/mcp`; config gaps                                                                                                                                        | Config, maybe a small patch                                                                                           | S    | –                                          |
 
 ## Machines
@@ -312,6 +334,16 @@ leaves the host.
   - The phone has no "skip cleanup" button and uses the default cleanup instructions; cleanup longer
     than 20 s inserts the raw transcript.
   - While Deepgram is on, local models stay listed but none of them transcribes.
+- **Fast cleanup** (patch 22, 2026-11-27): upstream's cleanup runs a coding agent; on our host that
+  was a Claude Code session on Haiku 5.5 (4.4 s for one sentence). With `STOREFRONT_CLEANUP_MODEL`,
+  `HubCleanup.ts` replaces the environment's cleanup: one Messages API call to `ANTHROPIC_BASE_URL`
+  with `ANTHROPIC_AUTH_TOKEN` (no new secret), thinking off (`between_tools` for Sonnet 5.5,
+  `disabled` for Haiku; Opus 5.5 cannot), effort `low`, upstream's prompt plus a Flemish hint
+  (`FLEMISH_HINT`: Dutch self-corrections, fillers, misheard IT terms). Custom instructions and
+  the correction cue still apply; failures reach the user with the reason. Measured through the
+  hub: Sonnet 5.5 0.7-0.9 s and correct; Haiku without thinking 0.8-1.8 s and it kept spoken
+  corrections unless hinted; Haiku with thinking 2.8-4 s. The "Cleanup model" setting no longer
+  applies while the variable is set.
 - **Upstream:** stays in the fork (Theo's stance on speech providers, see Upstream contributions).
   Related Ideas: #32516 (own endpoint), #36900 (Deepgram).
 
@@ -374,6 +406,11 @@ leaves the host.
 - Off switch: Settings → Appearance → Usage limits → Show in threads (`threadUsageIndicatorEnabled`
   in mobile preferences, unset means on).
 - Display only: it shows what the app last received; nothing is fetched for it.
+- Missing on the iPhone (2026-11-27): `instanceHubs` (`packages/shared/src/usageLimits.ts`) pairs an
+  instance with a hub only when the source's `origin` equals the instance's `auth.endpoint`. Ours
+  differ (`https://cpa.storefront.be` against t3hub's `http://192.168.0.188:8318`), so no hub was
+  found and the instance's own limits (none) hid the pill. Patch 23 sets the source's `origin` from
+  `STOREFRONT_HUB_ORIGIN` on the server; clients and the reset fallback then pair them.
 - Not seen on a device yet (no Mac or simulator in that session); unit test with mocked React Native.
   It covers the end of message lines at the top right; the floating browser preview sits above it.
 

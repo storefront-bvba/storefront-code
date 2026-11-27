@@ -34,6 +34,12 @@ The server reads it only when it starts, so it applies at the next restart: the 
 - `T3CODE_HOSTED_APP_URL=https://<host>.<tailnet>.ts.net`: thread links for MCP clients (the ERP)
   point at our own web app instead of `app.t3.codes`. It also moves the pages a new T3 Connect
   sign-in uses; the existing link keeps working.
+- `STOREFRONT_CLEANUP_MODEL=claude-sonnet-5-5`: voice cleanup calls that model through the Messages
+  API at `ANTHROPIC_BASE_URL` (with `ANTHROPIC_AUTH_TOKEN`), thinking off, in under a second.
+  Without it, cleanup starts a Claude Code session (4 to 6 seconds).
+- `STOREFRONT_HUB_ORIGIN=https://cpa.storefront.be`: the API origin our CLIProxyAPI hub serves,
+  when its usage source (Settings → Providers → Usage providers) has another address (t3hub on
+  `http://192.168.0.188:8318`). Threads sent to the hub then find its limits.
 
 Restart the service for a change to apply, only when no thread runs. Runtimes are installed only
 with `fork/scripts/install-runtime.sh` (see [GOAL.md](../GOAL.md#rules-that-always-hold)).
