@@ -4186,6 +4186,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                   >
                     {composerControls}
                   </div>
+                  {/* Storefront Code (fork): the collapsed composer has no footer, so the ring sits here. */}
+                  {restingControlsVisible ? (
+                    <div className="absolute inset-y-0 right-0 flex items-center">
+                      <ComposerThreadUsage />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}
