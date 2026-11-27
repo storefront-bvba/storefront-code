@@ -1531,13 +1531,17 @@ export default function ChatView(props: ChatViewProps) {
     providers: providerStatuses,
     sources: serverConfig?.usageLimitSources ?? EMPTY_USAGE_LIMIT_SOURCES,
   });
-  // Storefront Code (fork): the sidebar strip and the composer ring show this thread's limits.
+  // Storefront Code (fork): the sidebar strip and the composer ring show this thread's limits;
+  // a click opens the usage panel and a second click closes it.
+  const toggleUsageLimits = useStableCallback(() =>
+    usageLimitsBanner ? usageLimitsBanner.onDismiss?.() : void openUsageLimits(),
+  );
   usePublishThreadUsage({
     providerInstanceId: activeProviderInstanceId,
     model: activeUsageModel,
     providers: providerStatuses,
     sources: serverConfig?.usageLimitSources ?? EMPTY_USAGE_LIMIT_SOURCES,
-    open: openUsageLimits,
+    open: toggleUsageLimits,
   });
   const {
     beginLocalDispatch,

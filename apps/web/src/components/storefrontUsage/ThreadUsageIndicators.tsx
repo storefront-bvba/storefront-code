@@ -1,6 +1,6 @@
 // Storefront Code (fork): the open thread's tightest usage limit, always in view (Wouter,
 // 2026-11-27): a slim strip at the bottom of the sidebar, or a ring left of the composer's mic when
-// there is no sidebar. Hover lists every window; a click opens the thread's usage panel.
+// there is no sidebar. Hover lists every window; a click opens or closes the usage panel.
 import type { UsageLimitDisplay } from "@t3tools/contracts/settings";
 import {
   limitPercentText,

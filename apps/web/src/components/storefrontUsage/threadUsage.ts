@@ -19,7 +19,7 @@ export interface ThreadUsage {
   readonly windows: readonly ThreadLimitWindow[];
   /** The window with the least left: what the strip and the ring show. */
   readonly tightest: ThreadLimitWindow;
-  /** Opens the thread's usage panel; null once its ChatView is gone (then: the Usage page). */
+  /** Opens or closes the thread's usage panel; null once its ChatView is gone (then: the Usage page). */
   readonly open: (() => void) | null;
 }
 
