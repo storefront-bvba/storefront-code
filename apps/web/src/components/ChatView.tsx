@@ -64,6 +64,7 @@ import { heldComposerSendBannerItem } from "./chat/ComposerHeldSendBanner";
 import { armFreshSession, disarmFreshSession, useFreshSessionArmed } from "./chat/freshSessionArms";
 import { cancelHeldComposerSend, useComposerSendHeld } from "./chat/preparingComposerImages";
 import { useUsageLimitsPanel } from "./chat/useUsageLimitsPanel";
+import { usePublishThreadUsage } from "./storefrontUsage/threadUsage";
 import { useWorktreeSetup } from "./chat/useWorktreeSetup";
 import { useChatShortcuts } from "./chat/useChatShortcuts";
 import { ChatBannerLane } from "./chat/ChatBannerLane";
@@ -1529,6 +1530,14 @@ export default function ChatView(props: ChatViewProps) {
     providerDriver: activeProviderStatus?.driver ?? null,
     providers: providerStatuses,
     sources: serverConfig?.usageLimitSources ?? EMPTY_USAGE_LIMIT_SOURCES,
+  });
+  // Storefront Code (fork): the sidebar strip and the composer ring show this thread's limits.
+  usePublishThreadUsage({
+    providerInstanceId: activeProviderInstanceId,
+    model: activeUsageModel,
+    providers: providerStatuses,
+    sources: serverConfig?.usageLimitSources ?? EMPTY_USAGE_LIMIT_SOURCES,
+    open: openUsageLimits,
   });
   const {
     beginLocalDispatch,
