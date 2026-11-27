@@ -3,12 +3,13 @@ import type { ModelSelection, ServerConfig, UsageLimitsReport } from "@t3tools/c
 import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
 import {
   limitPercentText,
+  resetTimeText,
   resolveThreadLimits,
   shownPercent,
   threadLimitWindows,
 } from "@t3tools/shared/usageLimitsDisplay";
 import { AsyncResult } from "effect/reactivity";
-import { useGT, useMessages } from "gt-react-native";
+import { useGT, useLocale, useMessages } from "gt-react-native";
 import { Pressable, View } from "react-native";
 import Animated, { FadeIn, FadeOut, ReduceMotion } from "react-native-reanimated";
 
@@ -33,6 +34,7 @@ export function ThreadUsageIndicator(props: {
 }) {
   const gt = useGT();
   const m = useMessages();
+  const locale = useLocale();
   const now = useNowMinuteMs();
   const display = useUsageLimitDisplay();
   const preferences = useAtomValue(mobilePreferencesAtom);
@@ -42,7 +44,11 @@ export function ThreadUsageIndicator(props: {
   const providers = props.serverConfig?.providers ?? [];
   const sources = props.serverConfig?.usageLimitSources ?? [];
   const windows = enabled
-    ? threadLimitWindows(resolveThreadLimits(instanceId, model, providers, sources, now), model)
+    ? threadLimitWindows(
+        resolveThreadLimits(instanceId, model, providers, sources, now),
+        model,
+        now,
+      )
     : [];
   const tightest = windows.reduce<(typeof windows)[number] | null>(
     (lowest, window) =>
@@ -51,6 +57,15 @@ export function ThreadUsageIndicator(props: {
   );
   if (tightest === null) return null;
   const remaining = tightest.remainingPercent;
+  // What is left right after the next reset, and when, always to the minute.
+  const reset = tightest.nextReset
+    ? `${shownPercent(tightest.nextReset.remainingPercent, display)}% ${resetTimeText(
+        tightest.nextReset.at,
+        now,
+        locale,
+        m,
+      )}`
+    : null;
   const tone =
     remaining <= 10 ? "bg-red-500" : remaining <= 20 ? "bg-amber-500" : "bg-foreground-muted";
   const open = () =>
@@ -63,34 +78,44 @@ export function ThreadUsageIndicator(props: {
       className="absolute right-3 z-20"
       style={{ top: props.top }}
     >
-      <GlassSurface style={{ borderRadius: 999 }}>
+      <GlassSurface style={{ borderRadius: reset ? 14 : 999 }}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={gt("Usage limits: {windows}", {
+          accessibilityLabel={`${gt("Usage limits: {windows}", {
             windows: windows
               .map(
                 (window) =>
                   `${window.label} ${limitPercentText(window.remainingPercent, display, m)}`,
               )
               .join(", "),
-          })}
+          })}${reset ? `, ${reset}` : ""}`}
           accessibilityHint={gt("Shows this thread's usage limits")}
           hitSlop={6}
           onPress={open}
-          className="h-7 flex-row items-center gap-1.5 px-2.5 active:opacity-60"
+          className={`${reset ? "py-1" : "h-7"} justify-center px-2.5 active:opacity-60`}
         >
-          <View className="h-1 w-6 overflow-hidden rounded-full bg-subtle-strong">
-            <View
-              className={`h-full rounded-full ${tone}`}
-              style={{ width: `${shownPercent(remaining, display)}%` }}
-            />
+          <View className="h-5 flex-row items-center gap-1.5">
+            <View className="h-1 w-6 overflow-hidden rounded-full bg-subtle-strong">
+              <View
+                className={`h-full rounded-full ${tone}`}
+                style={{ width: `${shownPercent(remaining, display)}%` }}
+              />
+            </View>
+            <Text numberOfLines={1} className="text-xs text-foreground-muted">
+              {tightest.label}
+            </Text>
+            <Text numberOfLines={1} className="text-xs font-t3-medium tabular-nums text-foreground">
+              {limitPercentText(remaining, display, m)}
+            </Text>
           </View>
-          <Text numberOfLines={1} className="text-xs text-foreground-muted">
-            {tightest.label}
-          </Text>
-          <Text numberOfLines={1} className="text-xs font-t3-medium tabular-nums text-foreground">
-            {limitPercentText(remaining, display, m)}
-          </Text>
+          {reset ? (
+            <Text
+              numberOfLines={1}
+              className="text-right text-xs tabular-nums text-foreground-muted"
+            >
+              {reset}
+            </Text>
+          ) : null}
         </Pressable>
       </GlassSurface>
     </Animated.View>

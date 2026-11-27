@@ -126,6 +126,21 @@ describe("ThreadUsageIndicator", () => {
     ]);
   });
 
+  it("says to the minute when the tightest limit resets and what is left then", () => {
+    const resetting = [
+      { ...limits[0] },
+      { ...limits[1], resetsAt: "2026-09-03T20:21:00.000Z" },
+    ] as const;
+    const soon = renderIndicator(claude([...resetting]));
+    expect(soon.text).toBe("Weekly29% left100% in 8:21");
+    expect(soon.label).toContain(", 100% in 8:21");
+
+    state.display = "used";
+    const later = [{ ...limits[1], resetsAt: "2026-09-07T16:00:00.000Z" }] as const;
+    expect(renderIndicator(claude([...later])).text).toMatch(/^Weekly71% used0% \D+ \d{2}:00$/);
+    state.display = "remaining";
+  });
+
   it("reads as used when limits are shown as used", () => {
     using _display = {
       [Symbol.dispose]: () => {

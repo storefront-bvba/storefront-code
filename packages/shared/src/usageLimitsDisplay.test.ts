@@ -9,6 +9,7 @@ import {
   limitWindowTimeText,
   poolMeter,
   shownPercent,
+  resetTimeText,
   threadLimitWindows,
 } from "./usageLimitsDisplay.ts";
 
@@ -185,7 +186,7 @@ describe("threadLimitWindows", () => {
     const limits = { checkedAt: "2026-09-03T11:00:00.000Z", windows: [session, weekly, fable] };
 
     expect(
-      threadLimitWindows({ kind: "instance", limits }, "claude-opus").map((window) => [
+      threadLimitWindows({ kind: "instance", limits }, "claude-opus", now).map((window) => [
         window.label,
         window.remainingPercent,
       ]),
@@ -193,7 +194,7 @@ describe("threadLimitWindows", () => {
       ["Session", 60],
       ["Weekly", 90],
     ]);
-    expect(threadLimitWindows({ kind: "instance", limits }, "claude-fable")).toHaveLength(3);
+    expect(threadLimitWindows({ kind: "instance", limits }, "claude-fable", now)).toHaveLength(3);
   });
 
   it("reads pooled windows as the pool's remaining share", () => {
@@ -205,8 +206,14 @@ describe("threadLimitWindows", () => {
       now,
     )[0]!;
 
-    expect(threadLimitWindows({ kind: "pool", windows: pool.windows }, null)).toEqual([
-      { key: "session:five_hour", label: "Session", remainingPercent: 80 },
+    expect(threadLimitWindows({ kind: "pool", windows: pool.windows }, null, now)).toEqual([
+      {
+        key: "session:five_hour",
+        label: "Session",
+        remainingPercent: 80,
+        // Account a resets at 14:00 and gives back its 40% of half the pool.
+        nextReset: { at: Date.parse("2026-09-03T14:00:00.000Z"), remainingPercent: 100 },
+      },
     ]);
   });
 
@@ -217,7 +224,39 @@ describe("threadLimitWindows", () => {
       unavailable: { reason: "probeFailed" as const },
     };
 
-    expect(threadLimitWindows({ kind: "instance", limits: unavailable }, null)).toEqual([]);
-    expect(threadLimitWindows(null, null)).toEqual([]);
+    expect(threadLimitWindows({ kind: "instance", limits: unavailable }, null, now)).toEqual([]);
+    expect(threadLimitWindows(null, null, now)).toEqual([]);
+  });
+
+  it("knows each window's next reset, and a full window after it", () => {
+    const limits = { checkedAt: "2026-09-03T11:00:00.000Z", windows: [session, weekly] };
+    expect(
+      threadLimitWindows({ kind: "instance", limits }, null, now).map((window) => window.nextReset),
+    ).toEqual([
+      { at: Date.parse("2026-09-03T14:00:00.000Z"), remainingPercent: 100 },
+      { at: Date.parse("2026-09-08T12:00:00.000Z"), remainingPercent: 100 },
+    ]);
+    expect(
+      threadLimitWindows({ kind: "instance", limits }, null, Date.parse("2026-09-04T00:00:00Z"))[0]
+        ?.nextReset,
+    ).toBeNull();
+  });
+});
+
+describe("resetTimeText", () => {
+  const at = Date.parse("2026-09-07T18:00:00.000Z");
+
+  it("counts down hours and minutes within a day, to the minute", () => {
+    expect(resetTimeText(at, at - (8 * 60 + 21) * 60_000 - 30_000, "en")).toBe("in 8:21");
+    expect(resetTimeText(at, at - 7 * 60_000, "en")).toBe("in 0:07");
+    expect(resetTimeText(at, at - (23 * 60 + 59) * 60_000, "en")).toBe("in 23:59");
+  });
+
+  it("names the weekday and time further out, and the date from six days on", () => {
+    const options = { timeZone: "UTC" } as const;
+    const weekday = new Intl.DateTimeFormat("en", { weekday: "long", ...options }).format(at);
+    expect(resetTimeText(at, at - 2 * 24 * 60 * 60_000, "en")).toContain(weekday.slice(0, 3));
+    expect(resetTimeText(at, at - 2 * 24 * 60 * 60_000, "en")).toMatch(/\d{2}:00$/);
+    expect(resetTimeText(at, at - 6 * 24 * 60 * 60_000, "en")).toMatch(/\d/);
   });
 });

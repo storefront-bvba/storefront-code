@@ -290,6 +290,51 @@ export interface ThreadLimitWindow {
   readonly key: string;
   readonly label: string;
   readonly remainingPercent: number;
+  /** The next reset and what is left right after it; null when the window reports none. */
+  readonly nextReset: { readonly at: number; readonly remainingPercent: number } | null;
+}
+
+const MINUTE_MS = 60_000;
+const DAY_MS = 24 * 60 * MINUTE_MS;
+
+/**
+ * When a limit resets, always to the minute: a countdown ("in 8:21") within a day, else the
+ * weekday and time ("Monday 18:00"), with the date from six days out. 24-hour time everywhere.
+ */
+export function resetTimeText(
+  at: number,
+  now: number,
+  locale?: string,
+  resolve: MFunctionType = mFallback,
+): string {
+  const minutes = Math.max(0, Math.floor((at - now) / MINUTE_MS));
+  if (minutes < 24 * 60) {
+    const time = `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
+    return resolve(msg("in {time}", { time, $context: "a usage limit resets in hours:minutes" }));
+  }
+  return new Intl.DateTimeFormat(locale, {
+    weekday: at - now < 6 * DAY_MS ? "long" : "short",
+    ...(at - now < 6 * DAY_MS ? {} : { day: "numeric", month: "short" }),
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(at);
+}
+
+const resetsAtMillis = (window: ServerProviderUsageWindow) => {
+  const at = window.resetsAt === undefined ? Number.NaN : Date.parse(window.resetsAt);
+  return Number.isFinite(at) ? at : null;
+};
+
+/** A pool's next reset: every account resetting in that same minute gives its share back. */
+function nextPoolReset(window: LimitPoolWindow, now: number): ThreadLimitWindow["nextReset"] {
+  const first = window.resets.find((reset) => reset.at > now);
+  if (first === undefined) return null;
+  const minute = Math.floor(first.at / MINUTE_MS);
+  const restored = window.resets
+    .filter((reset) => Math.floor(reset.at / MINUTE_MS) === minute)
+    .reduce((sum, reset) => sum + reset.restoresPercent, 0);
+  return { at: first.at, remainingPercent: clampPercent(window.remainingPercent + restored) };
 }
 
 const countsModel = (window: ServerProviderUsageWindow, model: string | null) =>
@@ -301,6 +346,7 @@ const countsModel = (window: ServerProviderUsageWindow, model: string | null) =>
 export function threadLimitWindows(
   limits: ThreadLimits | null,
   model: string | null,
+  now: number,
 ): readonly ThreadLimitWindow[] {
   if (limits === null) return [];
   if (limits.kind === "pool") {
@@ -310,14 +356,19 @@ export function threadLimitWindows(
         key: `${window.kind}:${window.id}`,
         label: window.label,
         remainingPercent: window.remainingPercent,
+        nextReset: nextPoolReset(window, now),
       }));
   }
   if (limitsNotice(limits.limits) !== null) return [];
   return limits.limits.windows
     .filter((window) => countsModel(window, model))
-    .map((window) => ({
-      key: `${window.kind}:${window.id}`,
-      label: window.label,
-      remainingPercent: remainingPercent(window),
-    }));
+    .map((window) => {
+      const at = resetsAtMillis(window);
+      return {
+        key: `${window.kind}:${window.id}`,
+        label: window.label,
+        remainingPercent: remainingPercent(window),
+        nextReset: at !== null && at > now ? { at, remainingPercent: 100 } : null,
+      };
+    });
 }
