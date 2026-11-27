@@ -1,0 +1,6 @@
+# Secrets and state live only on the VM.
+.env
+config/*
+!config/relay.example.json
+data/
+*.token
