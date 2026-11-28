@@ -165,6 +165,33 @@ it.live("streams 16-bit audio to Deepgram and returns the joined, corrected fina
   }).pipe(Effect.scoped, Effect.provide(testServices)),
 );
 
+it.live("adds the host's keyterms file after the other words, read for every recording", () =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const terms = `${yield* fileSystem.makeTempDirectoryScoped()}/keyterms.txt`;
+    yield* fileSystem.writeFileString(terms, "# git\nrebase\n\ncherry-pick\nreadme\n");
+    const seen: Seen = { audio: [] };
+    const speech = yield* deepgramSpeech({ STOREFRONT_DEEPGRAM_KEYTERMS_FILE: terms }, seen);
+    yield* speech.transcribe(pcm(0.5), options);
+    expect(seen.url!.searchParams.getAll("keyterm")).toEqual([
+      "Storefront",
+      "README",
+      "Docker Compose",
+      "rebase",
+      "cherry-pick",
+    ]);
+
+    yield* fileSystem.writeFileString(terms, "worktree\n");
+    yield* speech.transcribe(pcm(0.5), options);
+    expect(seen.url!.searchParams.getAll("keyterm")).toEqual([
+      "Storefront",
+      "README",
+      "Docker Compose",
+      "worktree",
+    ]);
+  }).pipe(Effect.scoped, Effect.provide(testServices)),
+);
+
 it.live("fails the recording when Deepgram drops the stream", () =>
   Effect.gen(function* () {
     const seen: Seen = { audio: [] };

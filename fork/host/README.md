@@ -37,6 +37,12 @@ The server reads it only when it starts, so it applies at the next restart: the 
 - `STOREFRONT_CLEANUP_MODEL=claude-sonnet-5-5`: voice cleanup calls that model through the Messages
   API at `ANTHROPIC_BASE_URL` (with `ANTHROPIC_AUTH_TOKEN`), thinking off, in under a second.
   Without it, cleanup starts a Claude Code session (4 to 6 seconds).
+- `STOREFRONT_CLEANUP_LOG=/home/<user>/.t3/storefront/voice-cleanup-log.ndjson` (temporary):
+  each cleanup appends its raw transcript, cleaned text, draft and duration there (mode 600), to
+  judge whether cleanup is worth it. Remove the line and the file when that review is done.
+- `STOREFRONT_DEEPGRAM_KEYTERMS_FILE=/home/<user>/.t3/storefront/deepgram-keyterms.txt`: the host's
+  own Deepgram vocabulary, one term per line (`#` starts a comment), after the words of Settings →
+  Voice. Read for every recording: edit it without a restart.
 - `STOREFRONT_HUB_ORIGIN=https://cpa.storefront.be`: the API origin our CLIProxyAPI hub serves,
   when its usage source (Settings → Providers → Usage providers) has another address (t3hub on
   `http://192.168.0.188:8318`). Threads sent to the hub then find its limits.

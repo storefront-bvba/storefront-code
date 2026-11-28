@@ -1,8 +1,8 @@
 /**
- * Storefront Code: Deepgram as this host's transcription backend, shared by the PCM override of
- * upstream's speech service and our Ogg Opus voice endpoints. Configured by
- * STOREFRONT_DEEPGRAM_KEY_FILE; the key stays on this host and is read from its file for every
- * recording.
+ * Storefront Code: Deepgram as this host's transcription backend, for upstream's speech service
+ * and our Ogg Opus endpoints. STOREFRONT_DEEPGRAM_KEY_FILE holds the key and
+ * STOREFRONT_DEEPGRAM_KEYTERMS_FILE the host's own vocabulary; both stay on this host and are read
+ * for every recording, so a new word applies without a restart.
  */
 import type { SpeechTranscriptionOptions } from "@t3tools/contracts";
 import * as NodeSocket from "@effect/platform-node/NodeSocket";
@@ -28,11 +28,13 @@ import {
   type DeepgramLiveAudio,
   deepgramQuery,
   type DeepgramSettings,
+  hostKeyterms,
   makeDeepgramTranscript,
 } from "./deepgramRequest.ts";
 
 const DeepgramConfig = Config.all({
   keyFile: Config.String("STOREFRONT_DEEPGRAM_KEY_FILE").pipe(Config.option),
+  keytermsFile: Config.String("STOREFRONT_DEEPGRAM_KEYTERMS_FILE").pipe(Config.option),
   // Several codes mean code-switching: Deepgram's multilingual model with each code as a hint.
   languages: Config.String("STOREFRONT_DEEPGRAM_LANGUAGE").pipe(Config.withDefault("nl-BE,en")),
   model: Config.String("STOREFRONT_DEEPGRAM_MODEL").pipe(Config.withDefault("nova-3")),
@@ -100,9 +102,24 @@ export const makeDeepgramClient = Effect.gen(function* () {
       ),
       Effect.map(Redacted.make),
     );
-  const environmentWords = serverSettings.getSettings.pipe(
+  const settingsWords = serverSettings.getSettings.pipe(
     Effect.map((current) => current.speechProjectCustomWords),
     Effect.orElseSucceed(() => []),
+  );
+  const hostWords = Option.match(config.keytermsFile, {
+    onNone: () => Effect.succeed([]),
+    onSome: (file) =>
+      fileSystem.readFileString(file).pipe(
+        Effect.map(hostKeyterms),
+        Effect.catch(() =>
+          Effect.logWarning(`The Deepgram keyterms file ${file} can't be read.`).pipe(
+            Effect.as([]),
+          ),
+        ),
+      ),
+  });
+  const environmentWords = Effect.all([settingsWords, hostWords]).pipe(
+    Effect.map(([settings, host]) => [...settings, ...host]),
   );
   const finalText = (text: string, options: SpeechTranscriptionOptions) => {
     const corrected = applySpeechAliases(text, options.speechCustomWords);

@@ -30,6 +30,14 @@ export function deepgramLanguages(settings: DeepgramSettings, requested: string)
   return [requested];
 }
 
+/** The host's keyterms file: one term per line; a line starting with `#` is a comment. */
+export const hostKeyterms = (text: string): SpeechCustomWords =>
+  text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .map((term) => ({ term, aliases: [] }));
+
 // Deepgram takes at most 100 keyterms and 500 tokens; long lists also dilute the boost.
 const MAX_KEYTERMS = 50;
 const MAX_KEYTERM_CHARACTERS = 1_200;
