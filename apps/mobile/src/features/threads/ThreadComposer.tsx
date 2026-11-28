@@ -120,6 +120,7 @@ import {
   ComposerDictationStatus,
   ComposerDictationToolbar,
 } from "../voice-input/ComposerDictationControl";
+import { LiveVoiceTranscriptBlock } from "../../storefront/voice/LiveVoiceTranscript";
 import { useVoiceInputController } from "../voice-input/useVoiceInputController";
 import { resolveVoiceComposerPresentation } from "../voice-input/voiceInputPresentation";
 import type { ExistingThreadSettingsRouteParams } from "./ThreadSettingsSheet";
@@ -827,6 +828,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
               </Text>
             </View>
           ) : null}
+          {showsCompactDictation ? <LiveVoiceTranscriptBlock /> : null}
           <View
             onLayout={(event) => {
               compactEditor.onRowLayout(event);
@@ -1107,6 +1109,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                   elapsedSeconds={voiceInput.elapsedSeconds}
                   phase={voiceInput.state.phase}
                   presentation={voicePresentation}
+                  showsTranscript={false}
                 />
                 <View className="shrink-0 flex-row items-center">
                   <ComposerDictationPrimaryAction

@@ -355,6 +355,8 @@ export function ComposerDictationStatus(props: {
   readonly elapsedSeconds: number;
   readonly phase: VoiceInputPhase;
   readonly presentation: VoiceComposerPresentation;
+  /** Storefront: false where the composer shows the words above the row instead. */
+  readonly showsTranscript?: boolean;
 }) {
   const recording = props.phase === "recording";
   const waveformStyle = useAnimatedStyle(() => ({
@@ -377,7 +379,11 @@ export function ComposerDictationStatus(props: {
           className="absolute inset-0 min-w-0 flex-row items-center gap-2 px-1"
           style={waveformStyle}
         >
-          <LiveVoiceTranscript fallback={<VoiceWaveform audioLevels={props.audioLevels} />} />
+          {props.showsTranscript === false ? (
+            <VoiceWaveform audioLevels={props.audioLevels} />
+          ) : (
+            <LiveVoiceTranscript fallback={<VoiceWaveform audioLevels={props.audioLevels} />} />
+          )}
           <DictationElapsedTime className="text-foreground-muted" seconds={props.elapsedSeconds} />
         </Animated.View>
         <Animated.View className="absolute inset-0 justify-center px-2" style={labelStyle}>
