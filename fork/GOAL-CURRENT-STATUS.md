@@ -109,6 +109,13 @@ patch, a PR, a sync, a decision, a finding.
   40. `fork:` weekly upstream check: the skill `.agents/skills/storefront-upstream-check/` and
       `fork/scripts/upstream-check.sh` (release notes, watched paths, migrations, dry-run merge,
       guards on the merged tree in a scratch worktree). Advice only.
+  41. `fork(server):` temporary cleanup log: with `STOREFRONT_CLEANUP_LOG`, every voice cleanup
+      appends raw text, cleaned text, draft and duration to that file
+      (`apps/server/src/storefront/cleanup/cleanupLog.ts`, one pipe in `HubCleanup.ts`). F2. Drop it
+      after the review (Wouter's task, from 2026-12-05).
+  42. `fork(server):` the host's Deepgram vocabulary in a text file
+      (`STOREFRONT_DEEPGRAM_KEYTERMS_FILE`, read per recording; `hostKeyterms` in
+      `deepgramRequest.ts`, a few lines in `DeepgramClient.ts`). F2.
 - **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
   `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied). The Linux build runs
   it on the source, runs `fork/scripts/check-build.sh`, and checks its own archive with
@@ -422,6 +429,18 @@ leaves the host.
   hub: Sonnet 5.5 0.7-0.9 s and correct; Haiku without thinking 0.8-1.8 s and it kept spoken
   corrections unless hinted; Haiku with thinking 2.8-4 s. The "Cleanup model" setting no longer
   applies while the variable is set.
+- **Is cleanup still needed?** (2026-11-28) Wouter finds step 1 already good and asked whether
+  step 2 adds anything. No log kept raw and cleaned text (our code logs no content, the hub's
+  `request-log` is off, server traces hold only durations), so patch 41 records them for a week.
+  Real cleanups took 1.1-4.0 s (median 2.0 s, 9 runs on 2026-11-28 morning), longer than the
+  0.7-0.9 s measured on 2026-11-27. Deepgram's `smart_format` sets punctuation, capitals and
+  numerals; it does not resolve spoken self-corrections or words heard as other real words.
+- **Vocabulary:** the environment's dictionary (`speechProjectCustomWords`) was empty and the
+  phone sends no words, so Deepgram got no keyterms from the phone. Since 2026-11-28 the host file
+  `~/.t3/storefront/deepgram-keyterms.txt` (patch 42) holds 42 terms: git words (rebase,
+  cherry-pick, worktree, …), operations words and our product names. Short words that sound like
+  Dutch ones (tag/dag, diff/dief) are left out on purpose: a keyterm can also pull a Dutch word
+  the wrong way. Web's own words come first within the 50-term limit.
 - **Upstream:** stays in the fork (Theo's stance on speech providers, see Upstream contributions).
   Related Ideas: #32516 (own endpoint), #36900 (Deepgram).
 
