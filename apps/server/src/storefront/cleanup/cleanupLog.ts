@@ -19,11 +19,24 @@ import * as Schema from "effect/Schema";
 
 const isTextGenerationError = Schema.is(TextGenerationError);
 
+const CleanupLogEntry = Schema.Struct({
+  at: Schema.String,
+  ms: Schema.Number,
+  model: Schema.String,
+  raw: Schema.String,
+  cleaned: Schema.optionalKey(Schema.String),
+  error: Schema.optionalKey(Schema.String),
+  draft: Schema.String,
+});
+const encodeEntry = Schema.encodeEffect(Schema.fromJsonString(CleanupLogEntry));
+
 /** HubCleanup's own reason, such as "answered HTTP 429", else the first line of the cause. */
 const failureReason = (cause: Cause.Cause<unknown>) => {
   const error = Cause.squash(cause);
   const inner = error instanceof Error ? error.cause : undefined;
-  return isTextGenerationError(inner) ? inner.detail : Cause.pretty(cause).split("\n", 1)[0];
+  return isTextGenerationError(inner)
+    ? inner.detail
+    : (Cause.pretty(cause).split("\n", 1)[0] ?? "");
 };
 
 export const makeCleanupLog = Effect.gen(function* () {
@@ -52,13 +65,14 @@ export const makeCleanupLog = Effect.gen(function* () {
                     : { error: failureReason(exit.cause) }),
                   draft: input.draft.text,
                 };
-                yield* fs
-                  .writeFileString(file, `${JSON.stringify(entry)}\n`, { flag: "a", mode: 0o600 })
-                  .pipe(
-                    Effect.catch(() =>
-                      Effect.logWarning(`The cleanup log ${file} can't be written.`),
-                    ),
-                  );
+                yield* encodeEntry(entry).pipe(
+                  Effect.flatMap((line) =>
+                    fs.writeFileString(file, `${line}\n`, { flag: "a", mode: 0o600 }),
+                  ),
+                  Effect.catch(() =>
+                    Effect.logWarning(`The cleanup log ${file} can't be written.`),
+                  ),
+                );
               }),
             ),
           );
