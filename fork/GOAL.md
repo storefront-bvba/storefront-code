@@ -35,7 +35,8 @@ workflow.
   2. new files with a one-line mount over edits in existing files;
   3. small edits in files that rarely change over edits in hot files.
 - **Track stable releases, not `main`.** The fork is rebased onto the newest stable tag
-  (`vX.Y.Z`, roughly weekly). Server, desktop and app are built from the same base.
+  (`vX.Y.Z`, roughly weekly). Server, desktop and app are built from the same base. Whether a new
+  tag is worth it is checked weekly with the skill `storefront-upstream-check`.
 - **Keep the two docs current.** Every change, PR, sync and decision updates
   [GOAL-CURRENT-STATUS.md](GOAL-CURRENT-STATUS.md).
 - **One server build, one restart per round.** A host restart interrupts Wouter's work, so all
