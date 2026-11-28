@@ -16,6 +16,7 @@ import { applySpeechAliases } from "../../speech/customWords.ts";
 import { SpeechPostProcessing } from "../../speech/postProcessing.ts";
 import { SpeechOperationError } from "../../speech/SpeechService.ts";
 import { buildTranscriptionPostProcessingPrompt } from "../../textGeneration/TranscriptionPostProcessing.ts";
+import { makeCleanupLog } from "./cleanupLog.ts";
 
 const CleanupConfig = Config.all({
   model: Config.String("STOREFRONT_CLEANUP_MODEL").pipe(Config.option),
@@ -61,6 +62,7 @@ const make = Effect.gen(function* () {
   const token = config.token.value;
   const thinking = thinkingOff(model);
   const http = yield* HttpClient.HttpClient;
+  const log = yield* makeCleanupLog;
 
   return SpeechPostProcessing.of({
     process: Effect.fn("HubCleanup.process")(
@@ -115,6 +117,7 @@ const make = Effect.gen(function* () {
             orElse: () => Effect.fail(failure("Cleanup took longer than 15 seconds.")),
           }),
         ),
+      (effect, input) => log(model, input, effect),
     ),
   });
 });
