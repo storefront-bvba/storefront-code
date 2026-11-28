@@ -116,6 +116,17 @@ patch, a PR, a sync, a decision, a finding.
   42. `fork(server):` the host's Deepgram vocabulary in a text file
       (`STOREFRONT_DEEPGRAM_KEYTERMS_FILE`, read per recording; `hostKeyterms` in
       `deepgramRequest.ts`, a few lines in `DeepgramClient.ts`). F2.
+  43. `fork(server):` accurate Live Activities: an unchanged card with unfinished rows is sent again
+      every 4 minutes (`refresh` in `HostAgentActivity.ts`, scheduled in `HostPush.ts`), and the
+      host says it sleeps before a suspend and that it woke after one, also for suspends started
+      elsewhere (`apps/server/src/storefront/power/sleepSignals.ts`, logind through `gdbus`, a
+      delay lock). See F8 in [design/F8-sleep-and-wake.md](design/F8-sleep-and-wake.md). F5, F8.
+  44. `fork(mobile):` the Live Activity shows a sleeping host ("Host asleep", work in flight
+      "Asleep"; `hostAsleepAt` in `AgentActivity.tsx`). F8.
+  45. `fork(mobile):` live dictation words in a block above the dictation row, up to about seven
+      lines, newest in view (`LiveVoiceTranscriptBlock`, one mount in `ThreadComposer.tsx`, a
+      `showsTranscript` prop on `ComposerDictationStatus`). Web already shows about five lines.
+      Issue comments and scheduled task prompts keep the two-line row. F2.
 - **Run the guards** after every rebase: `node fork/scripts/check-telemetry.mjs` and
   `node fork/scripts/check-push-port.mjs` (upstream changed relay code that F5 copied). The Linux build runs
   it on the source, runs `fork/scripts/check-build.sh`, and checks its own archive with
