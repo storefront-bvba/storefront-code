@@ -33,6 +33,8 @@ export function agentActivityText(
     workFailed: resolve(msg("Agent work failed")),
     workCompleted: resolve(msg("Agent work completed")),
     statusOutOfDate: resolve(msg("Agent status out of date")),
+    asleep: resolve(msg("Asleep", { $context: "the host computer sleeps" })),
+    hostAsleep: resolve(msg("Host asleep")),
     approval: resolve(msg("Approval", { $context: "agent waits for an approval" })),
     input: resolve(msg("Input", { $context: "agent waits for user input" })),
     noActiveAgents: resolve(msg("No active agents")),

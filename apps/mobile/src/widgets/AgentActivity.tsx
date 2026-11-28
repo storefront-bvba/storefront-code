@@ -61,6 +61,8 @@ export interface AgentActivityText {
   readonly active: Readonly<Record<string, string>>;
   readonly needAttention: Readonly<Record<string, string>>;
   readonly needYou: Readonly<Record<string, string>>;
+  readonly asleep?: string;
+  readonly hostAsleep?: string;
 }
 
 export interface AgentActivityProps {
@@ -70,6 +72,8 @@ export interface AgentActivityProps {
   readonly activeCount: number;
   readonly updatedAt: string;
   readonly activities: ReadonlyArray<AgentActivityRowProps>;
+  /** Storefront: set while the host sleeps; it said so right before it suspended. */
+  readonly hostAsleepAt?: string;
 }
 
 // Widget serialization excludes module helpers; use only imported view/modifier factories.
@@ -120,14 +124,23 @@ function AgentActivity(
     if (phase === "running" || phase === "starting") return 2;
     return 3;
   };
+  // Storefront: a host that said it sleeps is known asleep, past the stale date too. Rows that
+  // wait for you still do; work in flight is paused.
+  const asleep = props.hostAsleepAt !== undefined;
   // Mark in-flight rows stale after expiry so they cannot claim agents still work.
-  const activities: ReadonlyArray<AgentActivityRowProps> = environment.isStale
+  const activities: ReadonlyArray<AgentActivityRowProps> = asleep
     ? props.activities.map((row) =>
-        row.phase === "completed" || row.phase === "failed"
-          ? row
-          : { ...row, phase: "stale", status: text?.outOfDate ?? "Out of date" },
+        row.phase === "running" || row.phase === "starting"
+          ? { ...row, phase: "stale", status: text?.asleep ?? "Asleep" }
+          : row,
       )
-    : props.activities;
+    : environment.isStale
+      ? props.activities.map((row) =>
+          row.phase === "completed" || row.phase === "failed"
+            ? row
+            : { ...row, phase: "stale", status: text?.outOfDate ?? "Out of date" },
+        )
+      : props.activities;
   const ordered = [...activities].sort((a, b) => phasePriority(a.phase) - phasePriority(b.phase));
   const row0 = ordered[0];
   const row1 = ordered[1];
@@ -157,21 +170,26 @@ function AgentActivity(
   const agentWord = props.activeCount === 1 ? "agent" : "agents";
   const agentsLabel = allDone
     ? outcomeLabel
-    : environment.isStale
-      ? (text?.statusOutOfDate ?? "Agent status out of date")
-      : (text?.activeAgents[String(props.activeCount)] ??
-        `${props.activeCount} active ${agentWord}`);
+    : asleep
+      ? (text?.hostAsleep ?? "Host asleep")
+      : environment.isStale
+        ? (text?.statusOutOfDate ?? "Agent status out of date")
+        : (text?.activeAgents[String(props.activeCount)] ??
+          `${props.activeCount} active ${agentWord}`);
   const attentionSuffix =
     attentionRows.length > 0
       ? (text?.needAttention[String(attentionRows.length)] ??
         `${attentionRows.length} need${attentionRows.length === 1 ? "s" : ""} attention`)
       : "";
-  const activeLabel = allDone
-    ? doneLabel
-    : environment.isStale
-      ? (text?.outOfDate ?? "Out of date")
-      : (text?.active[String(props.activeCount)] ?? `${props.activeCount} active`);
-  const showCompactGlyph = !attentionRow && !failedRow && !allDone && !environment.isStale;
+  const activeLabel = asleep
+    ? (text?.asleep ?? "Asleep")
+    : allDone
+      ? doneLabel
+      : environment.isStale
+        ? (text?.outOfDate ?? "Out of date")
+        : (text?.active[String(props.activeCount)] ?? `${props.activeCount} active`);
+  const showCompactGlyph =
+    !attentionRow && !failedRow && !allDone && !environment.isStale && !asleep;
   const summary = attentionSuffix || activeLabel;
 
   // Widget taps target the containing app, so its production scheme is safe in every build.
