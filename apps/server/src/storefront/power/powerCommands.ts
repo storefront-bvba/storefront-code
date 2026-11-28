@@ -93,3 +93,41 @@ export const MAC_SESSION_COMMAND: PowerCommand = { command: "ioreg", args: ["-n"
 
 export const macScreenLocked = (ioregOutput: string) =>
   /"CGSSessionScreenIsLocked"\s*=\s*Yes/.test(ioregOutput);
+
+// logind announces a suspend with PrepareForSleep(true) and a resume with PrepareForSleep(false),
+// whoever starts it (a menu, hypridle, a key). gdbus needs no root here; stdbuf makes it print each
+// signal at once instead of when its pipe buffer fills.
+export const SLEEP_SIGNALS_COMMAND: PowerCommand = {
+  command: "stdbuf",
+  args: [
+    "-oL",
+    "gdbus",
+    "monitor",
+    "--system",
+    "--dest",
+    "org.freedesktop.login1",
+    "--object-path",
+    "/org/freedesktop/login1",
+  ],
+};
+
+/** `true` before a suspend, `false` after a resume, `null` for any other line of gdbus. */
+export const parsePrepareForSleep = (line: string): boolean | null => {
+  const match = /\.Manager\.PrepareForSleep \((true|false),?\)/.exec(line);
+  return match === null ? null : match[1] === "true";
+};
+
+/** A delay lock: logind waits for it (up to InhibitDelayMaxSec) before it suspends. */
+export const sleepDelayCommand = (serverPid: number): PowerCommand => ({
+  command: "systemd-inhibit",
+  args: [
+    "--what=sleep",
+    "--who=Storefront Code",
+    "--why=Telling your devices this host goes to sleep",
+    "--mode=delay",
+    "sh",
+    "-c",
+    'echo && exec tail --pid="$0" -f /dev/null',
+    String(serverPid),
+  ],
+});

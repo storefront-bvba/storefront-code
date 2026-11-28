@@ -33,6 +33,8 @@ import { holdWhileWanted } from "../../background/KeepAwake.ts";
 import * as ServerConfig from "../../config.ts";
 import * as ServerEnvironment from "../../environment/ServerEnvironment.ts";
 import { forkParked } from "../../serverActivation.ts";
+import * as HostAgentActivity from "../push/HostAgentActivity.ts";
+import * as HostPush from "../push/HostPush.ts";
 import {
   busyBetween,
   type LoadSample,
@@ -51,10 +53,15 @@ import {
   stayAwakeCommand,
   suspendCommand,
 } from "./powerCommands.ts";
+import { watchSleepSignals } from "./sleepSignals.ts";
 
 const UNDO_MS = SLEEP_WHEN_DONE_UNDO_SECONDS * 1000;
 const CHECK_INTERVAL = "5 seconds";
 const HEARTBEAT_INTERVAL = "20 seconds";
+// Sleep when done announces before it suspends; logind's signal for that suspend follows.
+const ANNOUNCED_FOR_MS = 60_000;
+// The network can take a while to return after a resume.
+const AWAKE_AGAIN_AFTER = "30 seconds";
 const STORE_RELATIVE_PATH = ["storefront", "power.json"] as const;
 
 const PowerFile = Schema.Struct({
@@ -134,6 +141,10 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
   readonly hasActiveRun: Effect.Effect<boolean>;
   /** One measurement of how busy the host is; null where that is not measured (not Linux). */
   readonly sampleLoad?: Effect.Effect<LoadSample | null>;
+  /** Tells the phones' Live Activities that the host goes to sleep (true) or woke up (false). */
+  readonly announceSleep?: (asleep: boolean) => Effect.Effect<void>;
+  /** Follows logind, so a suspend started elsewhere is announced too (Linux). */
+  readonly sleepSignals?: boolean;
 }) {
   const { filePath, environmentId, hasActiveRun } = input;
   const platform = yield* HostProcess.Platform;
@@ -255,6 +266,26 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
     ),
   );
 
+  const announceToDevices = input.announceSleep ?? (() => Effect.void);
+  const sleepAnnouncedAt = yield* Ref.make<number | null>(null);
+  const announceSleeping = Effect.gen(function* () {
+    const now = yield* Clock.currentTimeMillis;
+    const last = yield* Ref.getAndSet(sleepAnnouncedAt, now);
+    if (last !== null && now - last < ANNOUNCED_FOR_MS) return;
+    yield* Effect.all([postRelay("sleeping", {}), announceToDevices(true)], {
+      concurrency: "unbounded",
+      discard: true,
+    });
+  });
+  const announceAwake = Ref.set(sleepAnnouncedAt, null).pipe(
+    Effect.andThen(
+      Effect.all([heartbeat, announceToDevices(false)], {
+        concurrency: "unbounded",
+        discard: true,
+      }),
+    ),
+  );
+
   const screenLocked = Effect.gen(function* () {
     if (platform === "darwin") return macScreenLocked((yield* run(MAC_SESSION_COMMAND)).output);
     const omarchy = (yield* run(OMARCHY_LOCKED_COMMAND)).exitCode;
@@ -320,7 +351,7 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
       );
       return;
     }
-    yield* postRelay("sleeping", {});
+    yield* announceSleeping;
     // One-shot: it is off before the host sleeps, so a resume does not suspend it again.
     yield* update((current) =>
       current.armedAt === armedAt
@@ -341,7 +372,7 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
               lastError: `Suspend failed: ${result.output || `exit ${result.exitCode}`}`,
             },
     );
-    yield* heartbeat;
+    yield* announceAwake;
   });
 
   const stayAwake = stayAwakeCommand(platform, process.pid);
@@ -385,6 +416,18 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
       Effect.forever(heartbeat.pipe(Effect.andThen(Effect.sleep(HEARTBEAT_INTERVAL)))),
     );
   }
+  if (input.sleepSignals === true && platform === "linux") {
+    yield* forkParked(
+      watchSleepSignals({
+        serverPid: process.pid,
+        onSleep: announceSleeping,
+        onWake: announceAwake.pipe(
+          Effect.andThen(Effect.sleep(AWAKE_AGAIN_AFTER)),
+          Effect.andThen(announceAwake),
+        ),
+      }),
+    );
+  }
 
   const status = Effect.gen(function* () {
     return powerStatus(
@@ -412,7 +455,10 @@ export const makeHostPower = Effect.fn("HostPower.make")(function* (input: {
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const path = yield* Path.Path;
+  const activity = yield* HostAgentActivity.HostAgentActivity;
   return yield* makeHostPower({
+    announceSleep: activity.hostAsleep,
+    sleepSignals: true,
     filePath: path.join((yield* ServerConfig.ServerConfig).stateDir, ...STORE_RELATIVE_PATH),
     environmentId: yield* (yield* ServerEnvironment.ServerEnvironment).getEnvironmentId,
     hasActiveRun: sql<{ readonly active: number }>`
@@ -428,4 +474,8 @@ const make = Effect.gen(function* () {
   });
 });
 
-export const layer = Layer.effect(HostPower, make).pipe(Layer.provide(FetchHttpClient.layer));
+// HostPush.layer is shared with the relay and the push endpoints: one set of cards.
+export const layer = Layer.effect(HostPower, make).pipe(
+  Layer.provide(FetchHttpClient.layer),
+  Layer.provide(HostPush.layer),
+);

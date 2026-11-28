@@ -49,6 +49,11 @@ const make = Effect.gen(function* () {
         Effect.sleep(HostAgentActivity.SWEEP_INTERVAL).pipe(Effect.andThen(activity.sweep)),
       ),
     );
+    yield* forkParked(
+      Effect.forever(
+        Effect.sleep(HostAgentActivity.REFRESH_INTERVAL).pipe(Effect.andThen(activity.refresh)),
+      ),
+    );
     // A paired client the host removed stops receiving pushes at once.
     yield* forkParked(
       Stream.runForEach(sessions.streamChanges, (change) =>

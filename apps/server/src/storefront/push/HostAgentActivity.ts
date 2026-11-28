@@ -44,6 +44,10 @@ const HOST_USER_ID = "host";
 // worker.ts cron: finished rows stay 30 minutes, the sweep runs every 5 minutes.
 const TERMINAL_ROW_RETENTION_MS = 30 * 60_000;
 export const SWEEP_INTERVAL = "5 minutes";
+// Storefront: iOS marks unfinished rows out of date 10 minutes after the last update (the stale
+// date), so a card whose rows did not change is sent again while this host is alive.
+export const REFRESH_INTERVAL = "1 minute";
+const REFRESH_AFTER_MS = 4 * 60_000;
 // A phone re-registers at least daily; one gone this long has left.
 const REGISTRATION_TTL_MS = 14 * 24 * 60 * 60_000;
 const ACTIVE_SESSIONS_CACHE_MS = 30_000;
@@ -105,6 +109,10 @@ export class HostAgentActivity extends Context.Service<
     readonly testPush: (deviceId: string) => Effect.Effect<HostPushTestResult>;
     readonly sweep: Effect.Effect<void>;
     readonly pruneSessions: (sessionIds: ReadonlySet<string>) => Effect.Effect<void>;
+    /** Storefront: sends unfinished cards again once their last update is a few minutes old. */
+    readonly refresh: Effect.Effect<void>;
+    /** Storefront: every card learns that this host goes to sleep (true) or woke up (false). */
+    readonly hostAsleep: (asleep: boolean) => Effect.Effect<void>;
   }
 >()("t3/storefront/push/HostAgentActivity") {}
 
@@ -164,6 +172,8 @@ export const make = Effect.fn("storefront.push.HostAgentActivity.make")(function
   // One delivery at a time keeps each card's updates in order, as the relay's per-device queue did.
   const lock = yield* Semaphore.make(1);
   const rows = new Map<string, RelayAgentActivityState>();
+  // Storefront: set while the host sleeps; cards then carry `hostAsleepAt` for the widget.
+  let asleepSince: string | null = null;
 
   let activeSessions: { readonly at: number; readonly ids: ReadonlySet<string> } | null = null;
   const activeSessionIds = Effect.gen(function* () {
@@ -317,9 +327,13 @@ export const make = Effect.fn("storefront.push.HostAgentActivity.make")(function
         return;
       }
       const base = { token: input.token, nowEpochSeconds: epochSeconds, nowIso };
+      const shown =
+        aggregate !== null && asleepSince !== null
+          ? { ...aggregate, hostAsleepAt: asleepSince }
+          : aggregate;
       const request =
-        input.kind === "live_activity_update" && aggregate !== null
-          ? apns.makeLiveActivityRequest({ ...base, event: "update", state: aggregate, alert })
+        input.kind === "live_activity_update" && shown !== null
+          ? apns.makeLiveActivityRequest({ ...base, event: "update", state: shown, alert })
           : apns.makeLiveActivityRequest({ ...base, event: "end", state: aggregate, alert });
       const result = yield* deliver(input.target, (credentials) =>
         apns.sendLiveActivityRequest({ credentials, request, issuedAtUnixSeconds: epochSeconds }),
@@ -586,6 +600,65 @@ export const make = Effect.fn("storefront.push.HostAgentActivity.make")(function
     }),
   );
 
+  const liveCards = Effect.map(listTargets, (targets) =>
+    targets.flatMap((target) =>
+      target.platform === "ios" && target.activity_push_token
+        ? [{ target, token: target.activity_push_token }]
+        : [],
+    ),
+  );
+  // The relay skips a card that did not change; these send it regardless.
+  const resend = (target: TargetRow, token: string, aggregate: RelayAgentActivityAggregateState) =>
+    sendLiveActivity({ target, kind: "live_activity_update", token, aggregate, alert: null });
+
+  const refresh = deliverSafely(
+    Effect.gen(function* () {
+      if (asleepSince !== null) return;
+      const nowMs = (yield* DateTime.now).epochMilliseconds;
+      const aggregate = makeAggregateState({
+        activeStates: listRows(),
+        terminalState: null,
+        nowMs,
+      });
+      // Finished rows keep their look when the card goes stale; only unfinished ones need this.
+      if (
+        aggregate === null ||
+        aggregate.activities.every((row) => row.phase === "completed" || row.phase === "failed")
+      ) {
+        return;
+      }
+      for (const { target, token } of yield* liveCards) {
+        const lastMs = epochMillis(target.last_live_activity_delivery_at);
+        if (nowMs - lastMs >= REFRESH_AFTER_MS) yield* resend(target, token, aggregate);
+      }
+    }),
+  );
+
+  const hostAsleep: HostAgentActivity["Service"]["hostAsleep"] = (asleep) =>
+    deliverSafely(
+      Effect.gen(function* () {
+        const now = yield* DateTime.now;
+        asleepSince = asleep ? (asleepSince ?? DateTime.formatIso(now)) : null;
+        const nowMs = now.epochMilliseconds;
+        const aggregate = makeAggregateState({
+          activeStates: listRows(),
+          terminalState: null,
+          nowMs,
+        });
+        // Before sleep the network is about to go: reach every card at once.
+        yield* Effect.forEach(
+          yield* liveCards,
+          ({ target, token }) =>
+            aggregate !== null
+              ? resend(target, token, aggregate)
+              : asleep
+                ? Effect.void
+                : sendForTarget({ target, aggregate: null, nowMs, replay: true }, sender),
+          { concurrency: "unbounded", discard: true },
+        );
+      }),
+    );
+
   const pruneSessions: HostAgentActivity["Service"]["pruneSessions"] = (sessionIds) =>
     Effect.suspend(() => {
       activeSessions = null;
@@ -608,5 +681,7 @@ export const make = Effect.fn("storefront.push.HostAgentActivity.make")(function
     testPush,
     sweep,
     pruneSessions,
+    refresh,
+    hostAsleep,
   });
 });

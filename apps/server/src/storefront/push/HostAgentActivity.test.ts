@@ -308,6 +308,73 @@ describe("HostAgentActivity", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("sends an unchanged unfinished card again before iOS calls it out of date", () =>
+    Effect.gen(function* () {
+      const { activity, requests } = yield* makeHarness();
+      yield* activity.registerDevice({ sessionId: "session-1", registration: registration() });
+      yield* activity.registerLiveActivity({
+        deviceId: "phone-1",
+        activityPushToken: ACTIVITY_TOKEN,
+      });
+      yield* publish(activity, state("running", at(0)));
+      assert.equal(requests.length, 1);
+
+      yield* TestClock.adjust("3 minutes");
+      yield* activity.refresh;
+      assert.equal(requests.length, 1, "a recent update needs no refresh");
+
+      yield* TestClock.adjust("1 minute");
+      yield* activity.refresh;
+      assert.equal(requests.length, 2);
+      const refreshed = requests[1]!;
+      assert.equal(refreshed.headers["apns-priority"], "5");
+      assert.isUndefined(refreshed.body.aps.alert, "a refresh never buzzes");
+      assert.equal(refreshed.body.aps["stale-date"], Math.floor(NOW_MS / 1_000) + 240 + 600);
+      assert.equal(
+        refreshed.body.aps["content-state"]?.props,
+        requests[0]!.body.aps["content-state"]?.props,
+      );
+
+      // A card with only finished rows keeps its look when it goes stale.
+      yield* publish(activity, state("completed", at(240_000)));
+      const afterCompletion = requests.length;
+      yield* TestClock.adjust("5 minutes");
+      yield* activity.refresh;
+      assert.equal(requests.length, afterCompletion);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "tells the card the host sleeps, then that it woke, though the rows did not change",
+    () =>
+      Effect.gen(function* () {
+        const { activity, requests } = yield* makeHarness();
+        yield* activity.registerDevice({ sessionId: "session-1", registration: registration() });
+        yield* activity.registerLiveActivity({
+          deviceId: "phone-1",
+          activityPushToken: ACTIVITY_TOKEN,
+        });
+        yield* publish(activity, state("running", at(0)));
+        const props = (index: number) =>
+          JSON.parse(requests[index]!.body.aps["content-state"]?.props ?? "{}");
+
+        yield* TestClock.adjust("1 second");
+        yield* activity.hostAsleep(true);
+        assert.equal(requests.length, 2);
+        assert.equal(props(1).hostAsleepAt, at(1_000));
+        assert.isUndefined(requests[1]!.body.aps.alert);
+
+        yield* TestClock.adjust("30 minutes");
+        yield* activity.refresh;
+        assert.equal(requests.length, 2, "an asleep host sends no refresh");
+
+        yield* activity.hostAsleep(false);
+        assert.equal(requests.length, 3);
+        assert.isUndefined(props(2).hostAsleepAt);
+        assert.deepStrictEqual(props(2).activities, props(0).activities);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("tries the other APNs environment once on BadDeviceToken and remembers it", () =>
     Effect.gen(function* () {
       const { activity, requests, store } = yield* makeHarness({

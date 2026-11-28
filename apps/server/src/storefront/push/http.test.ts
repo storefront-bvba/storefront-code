@@ -76,6 +76,8 @@ const fakeActivity = HostAgentActivity.HostAgentActivity.of({
   testPush: () => Effect.succeed({ ok: true, apnsStatus: 200, apnsReason: null }),
   sweep: Effect.void,
   pruneSessions: () => Effect.void,
+  refresh: Effect.void,
+  hostAsleep: () => Effect.void,
 });
 
 const layerConfig = Layer.effect(

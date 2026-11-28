@@ -55,6 +55,21 @@ Design of 2026-11-27 (base upstream v0.1.12), approved by Wouter on 2026-11-27. 
   hyprlock process); `LockedHint` is the fallback elsewhere. macOS: `CGSSessionScreenIsLocked`.
 - **Heartbeat:** every 20 s the host reports to the relay that it is awake, with whether Stay
   awake or Sleep when done is on; after a resume the next one follows within 20 s.
+- **Saying it sleeps** (2026-11-28, Wouter: "keep the status as accurate as possible"): right
+  before a suspend the host tells the relay "sleeping" and sends every Live Activity the card
+  with `hostAsleepAt`; the widget then shows "Host asleep", work in flight as "Asleep", rows that
+  wait for you as they are. After a resume it sends the card without it, once at once and again
+  30 s later (the network can lag). Sleep when done says it before `systemctl suspend`. A suspend
+  started elsewhere (Omarchy's menu, hypridle, a key) is caught from logind: `gdbus monitor`
+  (through `stdbuf -oL`, no root) reports `PrepareForSleep`, and a delay lock (`systemd-inhibit
+  --mode=delay`) holds the suspend until the message is out, at most 4 s (stock logind waits 5 s,
+  the Omarchy PC 15 s). NetworkManager turns the network off on the same signal, so for those
+  suspends the message is a race it usually wins over an open APNs connection. macOS: only Sleep
+  when done says it.
+- **Cards stay current:** iOS marks unfinished rows "Out of date" 10 minutes after the last update
+  (upstream's stale date). The host sends an unchanged card with unfinished rows again once its
+  last update is 4 minutes old (checked every minute, silent, priority 5), so "Out of date" now
+  means the host is gone without saying so. Upstream's relay does not refresh either.
 - **State** in `<stateDir>/storefront/power.json` (no migration); endpoints beside
   `/api/storefront/push`, contract in `packages/contracts/src/storefrontPower.ts`, with the
   `orchestration:operate` scope:
